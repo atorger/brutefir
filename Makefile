@@ -26,7 +26,7 @@ CHMOD_REMOVEX	= -x
 
 BRUTEFIR_LIBS	= $(FFTW_LIB) -lm -ldl
 BRUTEFIR_OBJS	= brutefir.o fftw_convolver.o bfconf.o bfrun.o emalloc.o \
-shmalloc.o dai.o bfconf_lexical.o inout.o dither.o delay.o merge.o firwindow.o \
+shmalloc.o dai.o bfconf_lexical.o inout.o dither.o delay.o firwindow.o \
 #peak_limiter.o
 BRUTEFIR_SSE_OBJS = convolver_xmm.o
 BFIO_FILE_OBJS	= bfio_file.fpic.o
