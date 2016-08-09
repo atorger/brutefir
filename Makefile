@@ -5,11 +5,11 @@ INCLUDE		= #-I/usr/local/include
 
 FFTW_LIB	= -lfftw3 -lfftw3f
 
-BRUTEFIR_VERSION = 1.0n
+BRUTEFIR_VERSION = 1.0o
 UNAME	= $(shell uname)
 UNAME_M = $(shell uname -m)
 FLEX	= flex
-LD	= ld
+LD	= gcc
 CC	= gcc
 CHMOD	= chmod
 GNUTAR	= tar

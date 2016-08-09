@@ -118,7 +118,7 @@ copy_to_delaybuf(void *dbuf,
 	}		
 	break;
     default:
-	fprintf(stderr, "Sample byte size %d not suppported.\n", sample_size);
+	fprintf(stderr, "Sample byte size %d not supported.\n", sample_size);
 	bf_exit(BF_EXIT_OTHER);
 	break;
     }
@@ -169,7 +169,7 @@ copy_from_delaybuf(void *buf,
 	}		
 	break;
     default:
-	fprintf(stderr, "Sample byte size %d not suppported.\n", sample_size);
+	fprintf(stderr, "Sample byte size %d not supported.\n", sample_size);
 	bf_exit(BF_EXIT_OTHER);
 	break;
     }
@@ -218,7 +218,7 @@ shift_samples(void *buf,
 	}	
 	break;
     default:
-	fprintf(stderr, "Sample byte size %d not suppported.\n", sample_size);
+	fprintf(stderr, "Sample byte size %d not supported.\n", sample_size);
 	bf_exit(BF_EXIT_OTHER);
 	break;
     }    

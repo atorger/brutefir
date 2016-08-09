@@ -96,20 +96,20 @@ struct debug_filter_process {
 
 
 struct intercomm_area {
-    bool_t doreset_overflow;
+    volatile bool_t doreset_overflow;
     int sync[BF_MAXPROCESSES];
-    uint32_t period_us[BF_MAXPROCESSES];
-    double realtime_index;
+    volatile uint32_t period_us[BF_MAXPROCESSES];
+    volatile double realtime_index;
     struct bffilter_control fctrl[BF_MAXFILTERS];
     struct bfoverflow overflow[BF_MAXCHANNELS];
     uint32_t ismuted[2][BF_MAXCHANNELS/32];
-    int delay[2][BF_MAXCHANNELS];
-    int subdelay[2][BF_MAXCHANNELS];
-    int n_pids;
-    pid_t pids[BF_MAXPROCESSES];
-    int exit_status;
-    bool_t full_proc[BF_MAXPROCESSES];
-    bool_t ignore_rtprio;
+    volatile int delay[2][BF_MAXCHANNELS];
+    volatile int subdelay[2][BF_MAXCHANNELS];
+    volatile int n_pids;
+    volatile pid_t pids[BF_MAXPROCESSES];
+    volatile int exit_status;
+    volatile bool_t full_proc[BF_MAXPROCESSES];
+    volatile bool_t ignore_rtprio;
 
     struct {
         uint64_t ts_start;

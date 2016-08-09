@@ -27,7 +27,7 @@ table, th, td {
 <li><a href="brutefir.html#bruteconv_1">The problem of complexity</a>
 <li><a href="brutefir.html#bruteconv_2">Problems with long FFTs</a>
 <li><a href="brutefir.html#bruteconv_3">Partitioned convolution</a>
-<li><a href="brutefir.html#bruteconv_4">Optimising where it counts</a>
+<li><a href="brutefir.html#bruteconv_4">Optimizing where it counts</a>
 <li><a href="brutefir.html#bruteconv_5">Conclusion</a>
 </ul>
 <li><a href="brutefir.html#download">Where can I get it?</a>
@@ -57,7 +57,7 @@ table, th, td {
 <li><a href="brutefir.html#bflogic">Logic modules</a>
 <ul>
 <li><a href="brutefir.html#bflogic_cli">Command line interface (cli)</a>
-<li><a href="brutefir.html#bflogic_eq">Run-time equaliser</a>
+<li><a href="brutefir.html#bflogic_eq">Run-time equalizer</a>
 <li><a href="brutefir.html#bflogic_own">Writing your own logic module</a>
 </ul>
 <li><a href="brutefir.html#tuning">Tuning</a>
@@ -77,8 +77,12 @@ table, th, td {
 
 <h2 id="news">News</h2>
 <p><strong>2016-08-09</strong><br>
-Maintenance release 1.0n, for package maintenance. No functional
-change.
+Maintenance release 1.0o. Second this day, was a bit trigger happy on
+the first. Put in some minor bugfixes received from the Debian package
+maintainer.
+
+<p><strong>2016-08-09</strong><br>
+Maintenance release 1.0n, no functional change.
 
 <p><strong>2013-11-29</strong><br>
 There was still a typo in the last uploaded 1.0m affecting
@@ -144,7 +148,7 @@ partitioned convolution. However, the non-uniform partitioned
 convolution algorithm is probably free to use in open-source 
 software. There are still patents on this in other countries (such as
 the US), but with the corresponding patent revoked in Europe, they
-will be hard to defened. Note that I'm not a patent lawyer, so if you
+will be hard to defend. Note that I'm not a patent lawyer, so if you
 really are going to implement non-uniform partitioned convolution I
 recommend to consult a professional first, because there is no 100%
 clear prior art as in the uniform partitioned convolution case.
@@ -190,7 +194,7 @@ BruteFIR v1.0b. Updated the JACK I/O module, it is now possible to run
 several BruteFIR instances using JACK at the same time, and it is not
 necessary to connect to external ports at startup. The CLI can now
 take commands from a serial line. Additionally, a couple of remaining
-bugs in the equaliser module have been fixed.
+bugs in the equalizer module have been fixed.
 
 <p><strong>2004-08-07</strong><br>
 BruteFIR v1.0a. Minor update, removed the coefficient set limit and
@@ -231,7 +235,7 @@ contains quite many new features, and bug fixes. Some feature
 highlights: BruteFIR now employs FFTW3, there is support for 32 and 64 
 bits in the same binary and buffer over/underflows can be
 ignored. Among important bug fixes are that FFTW wisdom is now stored
-properly, so it can be re-used more often, and the equaliser module
+properly, so it can be re-used more often, and the equalizer module
 now sets the magnitude properly at the edges.
 
 <p><strong>2003-02-11</strong><br>
@@ -247,7 +251,7 @@ and a simple automatic load balancer for multi-processor machines.
 <p><strong>2003-02-02</strong><br>
 BruteFIR v0.99g. This release adds support for callback I/O. One
 callback I/O module is available, supporting JACK. This support means
-that the program has went through quite radical reorganisations, so
+that the program has went through quite radical reorganizations, so
 something might be broke. If you discover any problems, please let me know.
 
 <p><strong>2003-01-05</strong><br>
@@ -277,7 +281,7 @@ Sometime soon, there will be 1.0...
 BruteFIR v0.99c, is an important bug fix release. Among other fixes,
 it fixes the slightly embarrassing bug of incorrect reading of
 3 byte 24 bit formats. Apart from many bug fixes, it adds double
-buffer support to the equaliser module, and a simple script function
+buffer support to the equalizer module, and a simple script function
 to the CLI. The risk of buffer underflow at startup has also been
 strongly reduced.
 
@@ -292,11 +296,11 @@ development of <a
 href="http://www.ludd.ltu.se/~torger/almusvcu.html">AlmusVCU</a>.
 
 <p><strong>2002-08-04</strong><br>
-This new release (v0.99) contains a first version of an equaliser
-module, which allows equalisation to be changed in runtime. Now the
+This new release (v0.99) contains a first version of an equalizer
+module, which allows equalization to be changed in runtime. Now the
 I/O delay is fixed, always exactly twice the filter block length
 (if the sound card hardware is properly designed). Good for
-synchronisation with other audio processors, or clustering. There is
+synchronization with other audio processors, or clustering. There is
 also a slight change in configuration file format, so you know why it 
 will complain when run with an old configuration file.
 
@@ -367,7 +371,7 @@ now much more modular. It uses modules for input and output, ALSA and
 file I/O being the first modules available. It also supports
 logic modules, the old BruteFIR CLI being the first example. The logic
 modules can be used to achieve adaptive filtering. The new module
-architecture will probably need some time to stabilise, and due to the
+architecture will probably need some time to stabilize, and due to the
 large amount of changes to the code, there is a great risk that this
 new version is less stable than the last. A few details in the
 configuration file format has changed as well, for which the
@@ -386,7 +390,7 @@ three milliseconds I/O delay, which is much lower than what I expected.
 <p><strong>2001-09-27</strong><br>
 New release, BruteFIR 0.96a. Some minor bugfixes, and at last
 processor capability detection code has been included, so BruteFIR
-will detect SSE or 3DNow, and use the optimised code accordingly.
+will detect SSE or 3DNow, and use the optimized code accordingly.
 
 <p><strong>2001-08-26</strong><br>
 Updated documentation to cover all the new features of BruteFIR 0.96.
@@ -433,7 +437,7 @@ for cards with non-interleaved buffer layout (like the RME9652).
 <p><strong>2001-04-08</strong><br>
 Major changes and cleanups of this page has been done, and the source
 code has been re-released. The new version is 0.94, and contains a new
-improved convolution algorithm with hand-coded assembler optimisations
+improved convolution algorithm with hand-coded assembler optimizations
 for Intel's SSE and AMD's 3Dnow. With this, BruteFIR is now capable of
 even higher throughput.
 
@@ -451,7 +455,7 @@ applying long FIR filters to multi-channel digital audio, either
 offline or in realtime. Its basic operation is specified through a
 configuration file, and filters, attenuation and delay can be changed
 in runtime through a simple command line interface. The FIR filter
-algorithm used is an optimised frequency domain algorithm, partly
+algorithm used is an optimized frequency domain algorithm, partly
 implemented in hand-coded assembler, thus throughput is extremely
 high. In realtime, a standard computer can typically run more than 10
 channels with more than 60000 filter taps each.
@@ -465,7 +469,7 @@ General Public License <a href="brutefir.html#gpl">[6]</a>.
 <p>
 The preferred operating system platform for the program is Linux
 <a href="brutefir.html#linux">[11]</a>, but it is easily 
-ported to other Unices as well, and supports for example FreeBSD out
+ported to other Unixes as well, and supports for example FreeBSD out
 of the box. BruteFIR uses the high-performance
 FFTW library <a href="brutefir.html#fftw">[7]</a> for the Fast Fourier
 Transform (FFT, <a href="brutefir.html#cooley_tukey">[5]</a>)
@@ -495,7 +499,7 @@ functionality
 <ul>
 <li>Create your own logic module, for example to do adaptive filtering
 <li>Provided is a logic module which implements a CLI accessible
-through telnet to manage runtime settings, and a dynamic equalier.
+through telnet to manage runtime settings, and a dynamic equalizer.
 <li>Toggle/change filter in runtime
 <li>Alter attenuation for each individual input and output in runtime
 <li>Alter delay for each individual input and output in runtime
@@ -506,7 +510,7 @@ through telnet to manage runtime settings, and a dynamic equalier.
 <li>Reasonable low I/O-delay (typically 200 ms)
 <li>Fixed I/O-delay, thus possible to sample-align with other processors
 <li>Cross-fade for seamless filter coefficient changes.
-<li>Redithering of outputs (HP TPDF)
+<li>Re-dithering of outputs (HP TPDF)
 <li>Overflow protection and monitoring
 <li>32 or 64 bit floating point internal resolution.
 <li>Supports multiple processors
@@ -517,14 +521,14 @@ through telnet to manage runtime settings, and a dynamic equalier.
 A few examples of applications where BruteFIR could be a central component:
 <ul>
 <li>Digital crossover filters
-<li>Room equalisation
+<li>Room equalization
 <li>Cross-talk cancellation
 <li>Wavefield synthesis
-<li>Auralisation
+<li>Auralization
 <li>Ambiophonics
 <li>Ambisonics
 </ul>
-Among these, room equalisation and auralisation needs the
+Among these, room equalization and auralization needs the
 longest FIR filters in the common case. Many applications can do with
 quite short filters actually, but the thing is that you will probably
 not need to compromise on the filter lengths when you use BruteFIR,
@@ -534,9 +538,9 @@ filter coefficients, thus it is not a filter design program. Also, due to
 its relatively high I/O-delay, BruteFIR is most suited for
 applications when the input signal is not live.
 <p>
-If you are interested in room equalisation, my old NWFIIR project <a
+If you are interested in room equalization, my old NWFIIR project <a
 href="brutefir.html#nwfiir">[18]</a> might be of interest. It's a bit
-dated though. A better program for room equalisation is Denis Sbragion's DRC <a
+dated though. A better program for room equalization is Denis Sbragion's DRC <a
 href="brutefir.html#drc">[22]</a>.
 
 <h2 id="bruteconv">BruteFIR convolution</h2>
@@ -547,7 +551,7 @@ means that the filter algorithm must be very fast, since it will be
 consuming almost all processor time of the whole program. BruteFIR's
 convolution algorithm is an example of a situation where a
 theoretically less efficient algorithm is faster in practice, because
-it is easily optimised and hides performance problems of more complex
+it is easily optimized and hides performance problems of more complex
 components.
 <p>
 Frequency domain algorithms for convolution is much faster than the
@@ -564,10 +568,10 @@ an FFT algorithm is needed. The FFT calculations occupy typically more than
 employed. Unfortunately, FFT it is not easy to implement. There exist
 numerous implementations which vary greatly in performance, which is
 one proof of the complexity. Since it takes up almost all processing
-time, we must optimise it in order to make the convolution
-faster. This leaves us with a quite hard optimisation problem.
+time, we must optimize it in order to make the convolution
+faster. This leaves us with a quite hard optimization problem.
 <p>
-One way to optimise is to code assembler by hand and try to be better
+One way to optimize is to code assembler by hand and try to be better
 than the compiler. Modern processors for personal computers like
 Intel's Pentium III <a href="brutefir.html#intel">[10]</a> or AMD's
 Athlon <a href="brutefir.html#amd">[1]</a> has custom SIMD instructions
@@ -578,7 +582,7 @@ point numbers. Typically, one can improve the performance of an
 algorithm four times when using these instructions. They are not used
 by common compilers like GCC (GNU Compiler Collection <a
 href="brutefir.html#gcc">[9]</a>), meaning that we have a good opportunity
-to write assembler code that will with a wide marigin outperform code
+to write assembler code that will with a wide margin outperform code
 generated by the compiler. Most FFT libraries are written in C, and
 thus does not use these efficient SIMD instructions. So,
 theoretically, we could implement an FFT algorithm using SIMD
@@ -588,10 +592,10 @@ design goals of BruteFIR is to be fairly portable, we want to make any
 assembler implementation small and simple, so it easily can be ported
 to other processor architectures. Maybe 'small', but certainly not
 'simple' would be applicable on an assembler implementation of FFT. In
-conclusion, we find optimisation with assembler as an attractive
+conclusion, we find optimization with assembler as an attractive
 method to increase performance of existing algorithms. However, the
-algorithm we need to optimise, FFT, is quite complex and thus not an
-attractive target for optimisation.
+algorithm we need to optimize, FFT, is quite complex and thus not an
+attractive target for optimization.
 <p>
 One of the fastest FFT libraries
 available is FFTW <a href="brutefir.html#fftw">[7]</a>, <a
@@ -611,7 +615,7 @@ which on my 900 MHz AMD Athlon test system gets a large performance
 dip when FFT lengths become larger than 32768
 (real-valued transforms). On the test system, a 262144 point FFT is 30
 times slower than a 32768 point, which theoretically should be only 10
-times. Although the behaviour is more stable on my 550 MHz Pentium III
+times. Although the behavior is more stable on my 550 MHz Pentium III
 test system, performance drops more than O(n * log2(n)) which is the
 complexity of the FFT algorithm. Note that these tests were performed
 using FFTW2.
@@ -623,21 +627,21 @@ problem becomes obvious.
 <p>
 Both Pentium and Athlon architectures allows for giving the cache
 hints from the software to reduce problems in these situations, but
-this must be done in assembler, and is therefore seldomly used.
+this must be done in assembler, and is therefore seldom used.
 <p>
 Apart from performance problems, long FFTs include more
-multiplications and scalings which induces a larger quantisation
+multiplications and scalings which induces a larger quantization
 error. This is however a minor problem (?).
 
 <h3 id="bruteconv_3">Partitioned convolution</h3>
 <p>
 We have seen that the central algorithm of fast convolution, the Fast
-Fourier Transform, is complex to implement and optimise. We have also
+Fourier Transform, is complex to implement and optimize. We have also
 seen that the need of long FFTs reduces the choices of available
 implementations and that the existing can behave poorly on some
 hardware architectures. A modified fast convolution algorithm that
 uses shorter FFTs, and where most time is spent in code which is
-small and easily optimised, would be ideal.
+small and easily optimized, would be ideal.
 <p>
 Many have worked on improving the standard frequency domain
 convolution algorithms for different purposes. The central idea found
@@ -653,7 +657,7 @@ href="brutefir.html#cooley_tukey">[5]</a>. The concept can
 be used to solve several problems. Stockham used it for saving memory,
 but in later work made in the eighties and early nineties, at the time
 when realtime DSP became feasible for the first time, it was stated
-that it can also be used to reduce quantisation erros, reduce
+that it can also be used to reduce quantization errors, reduce
 I/O-delay, and adapt to optimal FFT lengths of a specific
 implementation. All these improvements are described by J.S. Soo and
 K.K. Pang <a href="brutefir.html#soo_pang_1">[14]</a>, <a
@@ -675,13 +679,13 @@ of convolution in the frequency domain which is simply
 multiplication. The more parts we split the impulse response into, the
 more convolution and less FFT is done. Naturally the FFTs get shorter,
 and thus we get rid of the problems associated to long FFTs. We now
-realise that partitioned convolution is the answer to our wishes, we
-do not need long FFTs and it becomes less important to optimise the
+realize that partitioned convolution is the answer to our wishes, we
+do not need long FFTs and it becomes less important to optimize the
 FFT algorithm.
 
-<h3 id="bruteconv_4">Optimising where it counts</h3>
+<h3 id="bruteconv_4">Optimizing where it counts</h3>
 <p>
-We notice that we will earn most from optimising the operation where a
+We notice that we will earn most from optimizing the operation where a
 segment of input converted to the frequency domain is multiplied with
 the corresponding part of the filter also in the frequency
 domain. The result is then added to the output. When the data format
@@ -702,7 +706,7 @@ implementation look like this when programmed in C:
 algorithm, which is easy to implement in assembler. There are a couple
 of problems though. The data in each array is accessed from the tail
 and the front at the same time. It would be better for the cache to
-localise the accesses, and move from front to end only. It is also a
+localize the accesses, and move from front to end only. It is also a
 problem that  the data is accessed both in forward and reverse order
 (both 0,1,2,3 and 3,2,1,0), since we want to used SIMD
 instructions. To solve the problem, we need to reorder the data. This
@@ -711,7 +715,7 @@ free. For the input however, we need to do this once after each forward
 transform, and for the output we need to restore the half-complex
 order prior to each inverse transform. In BruteFIR the input reordering
 is put into the mixing and scaling step, and the output reordering in
-the quantisation step, so the cost is next to nothing. Below is a
+the quantization step, so the cost is next to nothing. Below is a
 C implementation of the previous algorithm, when data has been
 reordered to better fit SIMD instructions and to improve the memory
 access pattern:
@@ -736,7 +740,7 @@ access pattern:
 <p>
 The above function is easily converted into assembler using Intel's
 SSE instructions, or AMD's 3Dnow instructions, with cache hint
-instructions. The key loop (which is unrolled to furhter improve
+instructions. The key loop (which is unrolled to further improve
 performance) becomes less than 50 lines long.
 <p>
 It is interesting that partitioned convolution makes much more memory 
@@ -756,7 +760,7 @@ By implementing partitioned convolution we have avoided the need of
 using long FFTs, and moved the major part of the processing time from
 the FFT to a simple multiplication loop. By reordering data after the forward
 transform and restoring it prior to inverse transform, the
-multiplication loop can be easily realised with SIMD instructions, and
+multiplication loop can be easily realized with SIMD instructions, and
 thus become very efficient. On the 900 MHz AMD Athlon test system,
 filtering of a 131072 tap long filter is twice as fast when 16
 partitions of 8192 taps each are used instead of a single
@@ -775,13 +779,13 @@ reduction.
 Still, one must not over-estimate partitioned convolution. If there really
 is an optimal FFT algorithm available, ordinary overlap-save will
 certainly outperform the partitioned algorithm. An example of an
-assembler-optimised FFT algorithm can be found in the non-free and
-non-portable Intel Native signalling processing library <a
+assembler-optimized FFT algorithm can be found in the non-free and
+non-portable Intel Native signaling processing library <a
 href="brutefir.html#nsp">[19]</a>.
 
 <h2 id="download">Where can I get it?</h2>
 <p>
-You are free to <a href="files/brutefir-1.0n.tar.gz">download version
+You are free to <a href="files/brutefir-1.0o.tar.gz">download version
 1.0n</a>.
 <p>
 The package contains the source-code, you will need a supported
@@ -797,9 +801,9 @@ platforms, and when that is not available, OSS can be used.
 If you want to use the JACK support, you need an up to date version of
 JACK installed.
 <p>
-Be sure that you use an official gcc compiler when compiling
+Be sure that you use an official GCC compiler when compiling
 BruteFIR. One user reported bad sound quality (noise artifacts in the
-BruteFIR output), and it was shown that he had used gcc 2.96 (not an
+BruteFIR output), and it was shown that he had used GCC 2.96 (not an
 official version), that caused errors in the floating point
 calculations of BruteFIR.
 <p>
@@ -1106,7 +1110,7 @@ see. As we can see, there are five sections in the configuration:
 <ul>
 <li>General settings. Here the general parameters for BruteFIR is set
 up.
-<li>Coefficient settings. Parameters for files wherefrom filter
+<li>Coefficient settings. Parameters for files where-from filter
 coefficients are loaded.
 <li>Input settings. Settings for digital audio inputs.
 <li>Output settings. Settings for digital audio outputs.
@@ -1150,7 +1154,7 @@ filter_length: &lt;NUMBER: length in samples of the (sub)filters&gt;[,&lt;NUMBER
 config_file: &lt;STRING: default location of main configuration file&gt;;
 overflow_warnings: &lt;BOOLEAN: echo overflow warnings to stderr&gt;;
 show_progress: &lt;BOOLEAN: echo progress to stderr&gt;;
-max_dither_table_size: &lt;NUMBER: maximum size in bytes of precalculated dither&gt;;
+max_dither_table_size: &lt;NUMBER: maximum size in bytes of pre-calculated dither&gt;;
 allow_poll_mode: &lt;BOOLEAN: allow input poll mode&gt;;
 modules_path: &lt;STRING: extra path where to find BruteFIR modules&gt;;
 logic: &lt;STRING: logic module name&gt; { &lt;logic module parameters&gt; }[, ...];
@@ -1173,7 +1177,7 @@ convolution will be done on the whole filter length. To partition a
 and reduce I/O-delay.
 <p>
 The <code>convolver_config</code> setting specifies where FFTW wisdom should be
-stored, that is optimisation information for the FFT
+stored, that is optimization information for the FFT
 calculations.
 <p>
 If <code>overflow_warnings</code> is set to true, information about
@@ -1280,9 +1284,9 @@ sinc signal is infinitely long, it must be windowed. A kaiser window
 is used, default beta is 9.0, but an own value can be specified by
 adding it after a comma (example: <code>sdf_length: 31, 8.5;</code>),
 there is little reason to use other than the default though. The
-distorsion caused by the windowing is a soft rolloff at higher
-frequenices, the shape depends on the beta value. There is no phase
-distorsion. Since the sub-sample filters are linear phase, they will
+distortion caused by the windowing is a soft rolloff at higher
+frequencies, the shape depends on the beta value. There is no phase
+distortion. Since the sub-sample filters are linear phase, they will
 add a pre-response (in practice I/O-delay), which is their half filter
 length, that is the value given after the <code>sdf_length</code>
 setting. If sub-sample delay are used only on inputs or outputs, the
@@ -1365,7 +1369,7 @@ The coeff structure defines a set of filter coefficients, which
 becomes a FIR filter. There are several different file formats:
 
 <ul>
-<li><code>"text"</code> coefficents are listed in a text file, one
+<li><code>"text"</code> coefficients are listed in a text file, one
 coefficient per line. They are parsed with the standard C library
 <code>strtod</code> function.
 <li>A sample format string describing a raw format, for example 16 bit
@@ -1419,7 +1423,7 @@ coefficients are not read from file.
 <p>
 The <code>shared_mem</code> field indicates if the coefficient should be
 stored in shared memory. Some modules may require that, such as the
-equalisation module.
+equalization module.
 
 <h3 id="config_4">Input and output structure</h3>
 
@@ -1504,7 +1508,7 @@ to +1.0. There is no overflow checking for floating point formats
 <p>
 The channels field specifies the number of open and used channels of
 the device. If the number of open channels exceed the number of used
-channels, a slash (/) followed by a comma-seprated list of channel
+channels, a slash (/) followed by a comma-separated list of channel
 indexes of used channels must be appended. If we for example have a
 eight channel ADAT sound card, but we only want to use the first two,
 we write 8/0,1 as the channels setting. As you see, the lowest channel
@@ -1577,7 +1581,7 @@ unmuted from the CLI.
 If the dither flag is set to true, dither is applied on all used
 channels. Dither is a method to add carefully devised noise to improve
 the resolution. Although most modern recordings contain dither, they
-need to be redithered after they have been filtered for best
+need to be re-dithered after they have been filtered for best
 resolution. Dither should be applied when the resolution is reduced,
 for example from 24 bits on the input to 16 bits on the
 output. However, one can claim that dither should always be applied,
@@ -1620,7 +1624,7 @@ The filter structure defines where a filter is placed and what its
 parameters are. This is done in a filter:
 
 <ol>
-<li>Possible attenuation is applied to the inputs, whereafter they are
+<li>Possible attenuation is applied to the inputs, where-after they are
 mixed together.
 <li>The mixed-together inputs are filtered.
 <li>The filter output is copied to the output channels, possibly with
@@ -1635,7 +1639,7 @@ structures defines how inputs and outputs should be copied, mixed and
 filtered.
 <p>
 With help of the <code>from_filters</code> and <code>to_filters</code> fields,
-filters can be connected to eachother. The only real constraint is
+filters can be connected to each-other. The only real constraint is
 that there must be no loops. BruteFIR will detect and point out errors
 if such exist in a given filter network. Note that if possible
 coefficients should be pre-convolved rather than put as filters in
@@ -1687,7 +1691,7 @@ memory and processing.
 If the <code>crossfade</code> setting is set to true, there will be a
 cross-fade when the coefficient is changed in runtime, making the
 coefficient change totally seamless. This means that when changing
-coefficent (using the CLI for example), the filter will convolve one
+coefficient (using the CLI for example), the filter will convolve one
 block with the old coefficient, fade out that and mix it with a fade
 in block with the new coefficient. This means that at the
 time of coefficient change, there will be roughly twice the amount of
@@ -1808,9 +1812,9 @@ since the module assumes that all devices are driven by a sample clock
 <p>
 If the ALSA I/O module is used in several input/output structures, all
 referenced sound cards will be linked together using the ALSA
-API. This makes starting and stopping sound cards synchronised, if the
+API. This makes starting and stopping sound cards synchronized, if the
 hardware and driver supports it, if not, the ALSA subsystem tries to
-make starting and stopping is synchronised as it can. However, when
+make starting and stopping is synchronized as it can. However, when
 there are many alsa devices used, this linking can cause the computer
 to lock up, at least it has happened in the past. This is probably due
 to a problem in ALSA, and may have been resolved when you read
@@ -1901,14 +1905,14 @@ which will be the JACK sample format (floating point).
 The raw PCM file I/O module (named "file") is used to read and write
 samples from/to files. It supports all BruteFIR sample formats and
 reads/writes them directly in raw form, interleaved format. The
-paramater string is in the simplest case the filename. Example:
+parameter string is in the simplest case the filename. Example:
 <code>"file" { path: "test.pcm"; }</code>. One can also specify how many
 bytes to skip in the beginning for input files, and if to append
 output files. Examples: <code>"file" { path: "test.pcm"; skip: 44;
 }</code> and <code>"file" { path: "test.pcm"; append: true; }</code>.
 <p>
 It is also possible to read from and write to text files (X floating
-point ascii values per line separated with whitespace, where X is the
+point ASCII values per line separated with whitespace, where X is the
 number of channels). Just add the option <code>text: true;</code>. The
 module will convert to/from 64 bit floating point, and thus requires
 that sample format (or use <code>AUTO</code>).
@@ -1936,7 +1940,7 @@ serial line. The CLI is used for changing settings in runtime,
 which is of course only suitable when BruteFIR is used in
 realtime. It can be used interactively by hand, for example by
 connecting to it through telnet. It is also suitable for scripting
-BruteFIR, or using it as a means of interprocess communication if
+BruteFIR, or using it as a means of inter-process communication if
 BruteFIR is used as the convolution engine for another program.
 <p>
 The context sensitive <code>port</code> field specifies which
@@ -1959,7 +1963,7 @@ replaced.
 write end file descriptor&gt;;</code> the CLI will assume that the given
 file descriptors are already opened and ready for use, and will attach
 the read end to CLI input, and the write end to CLI output. This
-interface is suitable as interprocess communication when BruteFIR is
+interface is suitable as inter-process communication when BruteFIR is
 integrated into another program, and is started through fork() and
 exec().
 </ul>
@@ -1984,7 +1988,7 @@ will work as a line break, and thus separate atomic sets of
 statements.
 <p>
 A typical use for atomic set of statements is to change filter
-coefficents and volume at the same time.
+coefficients and volume at the same time.
 <p>
 The <code>sleep</code> function in the CLI allows for sleeping in seconds,
 milliseconds or blocks. One block is exactly the filter length in
@@ -1995,7 +1999,7 @@ When in script mode, the first atomic statements will be executed
 just before the first block is processed, then the block is processed
 (and sent to the output), and then the next set of atomic statements
 is run. That is, each set of atomic statements is performed before the
-corresponing block is processed. The next atomic statement set is not
+corresponding block is processed. The next atomic statement set is not
 performed until the next block is about to be processed.
 <p>
 The block sleep command (only works in script mode) works such that
@@ -2033,7 +2037,7 @@ get the following output:
 Commands:
 
 lf -- list filters.
-lc -- list coeffient sets.
+lc -- list coefficient sets.
 li -- list inputs.
 lo -- list outputs.
 lm -- list modules.
@@ -2104,10 +2108,10 @@ multiplier, which then is prefixed with <code>m</code>, like this <code>cfoa
 0 0 m-0.5</code>. Changing the attenuation with dB will not change the sign
 of the current multiplier.
 
-<h3 id="bflogic_eq">Run-time equaliser</h3>
+<h3 id="bflogic_eq">Run-time equalizer</h3>
 <p>
-The equaliser logic module takes control over one or more coefficient
-sets, and renders equaliser filters to them, as specified by the
+The equalizer logic module takes control over one or more coefficient
+sets, and renders equalizer filters to them, as specified by the
 user. This can be done in the initial configuration, and also updated
 in runtime, through the CLI.
 <p>
@@ -2134,12 +2138,12 @@ The startup configuration can look like this:
 </pre>
 
 <p>
-If you want to analyse the rendered filters, the
+If you want to analyze the rendered filters, the
 <code>debug_dump_filter</code> setting specifies a file name where the
 rendered coefficients will be written. It must contain %d, which will
-be replaced by the coefficient index. Then follows equalisers. Each
+be replaced by the coefficient index. Then follows equalizers. Each
 specify which coefficient index (or name) it should render the
-equaliser filter to. These must be allocated and must be stored in
+equalizer filter to. These must be allocated and must be stored in
 shared memory, for example like this:
 <p>
 <pre>
@@ -2152,7 +2156,7 @@ coeff 0 {
 
 <p>
 The dirac pulse will be replaced by the rendered filter. Each
-equaliser has a set of frequency bands (max 128), they can be manually
+equalizer has a set of frequency bands (max 128), they can be manually
 specified, or use the ISO octave band presets. Optionally, magnitude
 (in dB) and phase (in degrees) settings can be specified. The
 frequency value must then match one of the given bands.
@@ -2160,22 +2164,22 @@ frequency value must then match one of the given bands.
 If you specify two filters, the rendering will be double-buffered,
 meaning that the eq module will keep one coefficient active in the
 filter(s), and render to the other, and switch when ready. This means
-that there is no risk of playing an incomplete equaliser, which can cause
+that there is no risk of playing an incomplete equalizer, which can cause
 some noise (usually in the form of a beep), thus it is recommended to
-use double-buffered mode if the equaliser will be altered in
+use double-buffered mode if the equalizer will be altered in
 runtime. In the filter configuration and when referring to the
-equaliser in the CLI, the first of the two coefficients should then be
+equalizer in the CLI, the first of the two coefficients should then be
 used.
 <p>
-In run-time, equalisers can be modified through the CLI. An example:
+In run-time, equalizers can be modified through the CLI. An example:
 <code>lmc eq 0 mag 20/-10, 4000/10</code> will set the magnitude to -10 dB
-at 20 Hz and +10 dB at 4000 Hz for equaliser for coeffient 0. Instead
+at 20 Hz and +10 dB at 4000 Hz for equalizer for coefficient 0. Instead
 of <code>mag</code>, <code>phase</code> can be given. The command <code>lmc eq
-"eq-1" info</code> will list the current settings for the equaliser
-stored in the coefficent called "eq-1".
+"eq-1" info</code> will list the current settings for the equalizer
+stored in the coefficient called "eq-1".
 <p>
 The more heavily loaded the computer is by convolution, the longer
-time it will take to render the new equaliser. If the coefficent set it
+time it will take to render the new equalizer. If the coefficient set it
 renders to is very short, and the magnitude and phase response is very
 detailed (sharp edges etc) it will not be able to adapt to it fully.
 
@@ -2210,7 +2214,7 @@ delay, mixing and attenuation is very cheap in comparison.
 When testing with realtime indexes above 1.0, inputs and
 outputs must of course be files. For performance testing, you could
 use "/dev/zero" for input and "/dev/null" for output. Also note that
-it takes some time for the index to stabilise.
+it takes some time for the index to stabilize.
 <p>
 The realtime index typically matches the processor load, if running
 with a sound card. However, if input poll mode is employed, real time
@@ -2226,12 +2230,12 @@ given computer. Since the information is hardware and binary
 dependent, the file should be removed when hardware is
 changed/upgraded or BruteFIR is recompiled. A wisdom file that was not
 generated on the hardware BruteFIR is running on, or not by the binary
-that is run, may yeild suboptimal performance. When BruteFIR is
+that is run, may yield sub-optimal performance. When BruteFIR is
 calculating FFTW wisdom, the computer should not be running other
 processor-demanding software.
 <p>
 Naturally, it is very important that FFTW was compiled with the
-correct optimisation flags to achieve optimal performance.
+correct optimization flags to achieve optimal performance.
 <p>
 The wisdom is loaded used and updated each time BruteFIR is run. Each
 time BruteFIR uses a partition length it has not used before (and thus
@@ -2282,12 +2286,12 @@ resolution. Traditionally, 32 bit is called "single precision", and 64
 bit "double precision". The <code>float_bits</code> setting is used to
 change resolution. Per default, BruteFIR runs in 32 bit.
 <p>
-Depending on processor used, you may lose assembler optimisations
+Depending on processor used, you may lose assembler optimizations
 when running in 64 bit. Also, memory bandwidth used by BruteFIR will
 naturally double, which reduces performance. Thus, although 64 bit and
 32 bit operations are generally equally fast, due to increased memory
 usage, BruteFIR needs 30 - 50% extra processor time, not counting
-additional effects if assembler optimisations are lost.
+additional effects if assembler optimizations are lost.
 <p>
 When do you need double precision? If you are picky enough on sound
 quality that you would require dither on 24 bit output, then you need

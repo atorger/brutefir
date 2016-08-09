@@ -244,7 +244,7 @@ REAL2RAW_NAME(void *_rawbuf,
 	break;
     default:
     real2raw_invalid_byte_size:
-	fprintf(stderr, "Sample byte size %d is not suppported.\n", bytes);
+	fprintf(stderr, "Sample byte size %d is not supported.\n", bytes);
 	bf_exit(BF_EXIT_OTHER);
 	break;
     }        

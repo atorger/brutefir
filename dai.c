@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006, 2013 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2013, 2016 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -61,7 +61,7 @@ struct subdev {
     struct {
         int iodelay_fill;
         int curbuf;
-        int frames_left;
+        volatile int frames_left;
     } cb;
 };
 
@@ -367,7 +367,7 @@ do_mute(struct subdev *sd,
 	break;
     }
     default:
-	fprintf(stderr, "Sample byte size %d not suppported.\n",
+	fprintf(stderr, "Sample byte size %d not supported.\n",
 		sd->channels.sf.bytes);
 	bf_exit(BF_EXIT_OTHER);
 	break;
@@ -1746,7 +1746,7 @@ process_callback(void **states[2],
         }
         return -1;
     case BF_CALLBACK_EVENT_ERROR:
-        fprintf(stderr, "An error occured in a callback I/O module.\n");
+        fprintf(stderr, "An error occurred in a callback I/O module.\n");
         bf_exit(BF_EXIT_OTHER);
         break;
     case BF_CALLBACK_EVENT_NORMAL:

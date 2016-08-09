@@ -1,5 +1,5 @@
 
-BruteFIR v1.0m
+BruteFIR
 ================================================================================
 
 This is the source code for a generic FIR filter (convolution) engine,
@@ -12,5 +12,3 @@ A copy of the web page is included in this archive, but the one found on the
 web may be more up to date.
 
 Anders Torger, torger@ludd.ltu.se
-
-November 2013

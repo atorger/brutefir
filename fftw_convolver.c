@@ -265,7 +265,7 @@ convolver_convolve_add(void *input_cbuf,
     memcpy(_d, output_cbuf, n_fft * sizeof(real_t));
     */
     switch (opt_code) {
-#if defined(__ARCH_IA32__) || defined(__ARCH_X86_64__)
+#ifdef __SSE__
     case OPT_CODE_SSE:
 	convolver_sse_convolve_add(input_cbuf, coeffs, output_cbuf,
                                    n_fft >> 3);
@@ -276,7 +276,7 @@ convolver_convolve_add(void *input_cbuf,
                                     n_fft >> 3);
 	break;
 #endif
-#endif	
+#endif
     default:
     case OPT_CODE_GCC:
         if (realsize == 4) {

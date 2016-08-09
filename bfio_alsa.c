@@ -655,9 +655,9 @@ bfio_write(int fd,
 }
 
 void
-_init(void);
-void
-_init(void)
+do_init(void);
+void __attribute__((constructor))
+do_init(void)
 {
     memset(handles, 0, sizeof(handles));
     memset(n_handles, 0, sizeof(n_handles));

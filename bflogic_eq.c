@@ -534,7 +534,7 @@ bflogic_preinit(int *version_major,
                  equalisers[n].coeff[1] == equalisers[i].coeff[1]))
             {
                 fprintf(stderr, "EQ: At least two equalisers has at least one "
-                        "coefficent set in common.\n");
+                        "coefficient set in common.\n");
                 return -1;
             }
         }

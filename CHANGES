@@ -1,3 +1,6 @@
+BruteFIR v1.0o                                                    August 9, 2016
+	 * Applied some minor fixes reported by Debian package maintainer.
+
 BruteFIR v1.0n                                                    August 9, 2016
 	 * Minor code cleanups, no functional change.
 	 * Don't set the executable flag of bfio and bflogic modules (security).
