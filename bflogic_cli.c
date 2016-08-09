@@ -265,7 +265,7 @@ static char *
 strtrim(char s[])
 {
     char *p;
-    
+
     while (*s == ' ' || *s == '\t') {
 	s++;
     }

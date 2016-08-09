@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2004, 2009 -- Anders Torger
+ * (c) Copyright 2001 - 2004, 2009, 2016 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -68,7 +68,7 @@ void *
 emallocaligned(size_t size)
 {
     int err;
-    void *p;
+    void *p = NULL;
 
     if (size == 0) {
         return NULL;

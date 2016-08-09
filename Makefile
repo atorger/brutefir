@@ -11,7 +11,7 @@ UNAME_M = $(shell uname -m)
 FLEX	= flex
 LD	= ld
 CC	= gcc
-AS	= as
+CHMOD	= chmod
 GNUTAR	= tar
 CHECKER	= $(CC) #checkergcc
 CC_WARNINGS	= -Wall -Wpointer-arith -Wshadow \
@@ -22,11 +22,11 @@ CC_OPTIMISE	= -O2
 CC_FLAGS	= $(DEFINE) $(CC_OPTIMISE) -g
 FPIC		= -fPIC
 LDSHARED	= -shared
+CHMOD_REMOVEX	= -x
 
 BRUTEFIR_LIBS	= $(FFTW_LIB) -lm -ldl
 BRUTEFIR_OBJS	= brutefir.o fftw_convolver.o bfconf.o bfrun.o emalloc.o \
 shmalloc.o dai.o bfconf_lexical.o inout.o dither.o delay.o merge.o firwindow.o \
-#libdl.chkr.o libfftw.chkr.o libc.chkr.o
 #peak_limiter.o
 BRUTEFIR_SSE_OBJS = convolver_xmm.o
 BFIO_FILE_OBJS	= bfio_file.fpic.o
@@ -46,18 +46,6 @@ BFLOGIC_HRTF_OBJS = bflogic_hrtf.fpic.o emalloc.fpic.o shmalloc.fpic.o
 BASE_TARGETS	= brutefir cli.bflogic file.bfio eq.bflogic noise.bfio \
 test.bflogic
 TARGETS		= $(BASE_TARGETS)
-
-#
-# Specific SUN Solaris settings
-#
-ifeq ($(UNAME),SunOS)
-C_WARNINGS	= -Wall -Wlong-long -Wpointer-arith -Wshadow -Wcast-qual \
--Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wnested-externs \
--Winline
-# we assume sparc v8+
-C_FLAGS		+= -Wa,-xarch=v8plus
-BRUTEFIR_LIBS	+= -lrt
-endif
 
 #
 # Specific Linux settings
@@ -83,12 +71,6 @@ TARGETS += oss.bfio jack.bfio filecb.bfio
 
 all: $(TARGETS)
 
-%.chkr.o: %.chkr.c
-	$(CC) -o $@			-c $(INCLUDE) $(CC_FLAGS) $<
-
-%.o: %.s
-	$(AS) -o $@			$(AS_FLAGS) $<
-
 %.fpic.o: %.c
 	$(CHECKER) -o $@			-c $(INCLUDE) $(CC_WARNINGS) $(CC_FLAGS) $(FPIC) $<
 
@@ -109,33 +91,43 @@ brutefir: $(BRUTEFIR_OBJS)
 
 alsa.bfio: $(BFIO_ALSA_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_ALSA_OBJS) $(BFIO_ALSA_LIBS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 oss.bfio: $(BFIO_OSS_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_OSS_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 file.bfio: $(BFIO_FILE_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_FILE_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 noise.bfio: $(BFIO_NOISE_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_NOISE_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 filecb.bfio: $(BFIO_FILECB_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_FILECB_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 jack.bfio: $(BFIO_JACK_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_JACK_OBJS) $(BFIO_JACK_LIBS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 cli.bflogic: $(BFLOGIC_CLI_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFLOGIC_CLI_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 eq.bflogic: $(BFLOGIC_EQ_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFLOGIC_EQ_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 test.bflogic: $(BFLOGIC_TEST_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFLOGIC_TEST_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 hrtf.bflogic: $(BFLOGIC_HRTF_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFLOGIC_HRTF_OBJS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 distrib: all
 	[ -d brutefir-$(BRUTEFIR_VERSION) ] || mkdir brutefir-$(BRUTEFIR_VERSION)

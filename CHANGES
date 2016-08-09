@@ -1,3 +1,7 @@
+BruteFIR v1.0n                                                    August 9, 2016
+	 * Minor code cleanups, no functional change.
+	 * Don't set the executable flag of bfio and bflogic modules (security).
+
 BruteFIR v1.0m                                                 November 27, 2013
 	 * Fixed SSE2 bug introduced in 1.0l.
 	 * Added safety_limit feature to protect speakers.

@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006, 2013 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2013, 2016 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -1475,10 +1475,10 @@ filter_process(struct bfaccess *bfaccess,
                     icomm->fctrl[filters[n].intname].fscale[i];
             }
         }
-        memcpy(icomm_ismuted, icomm->ismuted, sizeof(icomm_ismuted));
-        memcpy(icomm_delay, icomm->delay, sizeof(icomm_delay));
+        memcpy(icomm_ismuted, (void *)icomm->ismuted, sizeof(icomm_ismuted));
+        memcpy(icomm_delay, (void *)icomm->delay, sizeof(icomm_delay));
         if (bfconf->use_subdelay[IN] || bfconf->use_subdelay[OUT]) {
-            memcpy(icomm_subdelay, icomm->subdelay, sizeof(icomm_subdelay));
+            memcpy(icomm_subdelay, (void *)icomm->subdelay, sizeof(icomm_subdelay));
         }
         icomm_mutex(0);
 
