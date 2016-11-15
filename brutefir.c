@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006, 2009, 2013 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2009, 2013, 2016 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -19,7 +19,7 @@
 
 #define PRESENTATION_STRING \
 "\n\
-BruteFIR v1.0m (November 2013)                                \
+BruteFIR v1.0o (November 2016)                                \
 (c) Anders Torger\n\
 \n"
 
