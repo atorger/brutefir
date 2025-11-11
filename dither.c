@@ -10,9 +10,7 @@
 #include <inttypes.h>
 
 #include "defs.h"
-#include "dai.h"
 #include "dither.h"
-#include "shmalloc.h"
 #include "emalloc.h"
 #include "pinfo.h"
 
@@ -27,45 +25,40 @@ void *dither_randmap = NULL;
 static int realsize;
 
 /*
- * Maximally equidistributed combined Tausworthe generator by L’Ecuyer.
+ * From "Tables of maximally equidistributed combined LSFR generators" by L’Ecuyer.
  *
  * Generates pseudorandom numbers between 0x0 - 0xFFFFFFFF
- *
- * Note 2025: there's an improved version of Tausworthe, this is the older
- * implementation, but for this context its plenty good enough.
  */
 static inline uint32_t
-tausrand(uint32_t state[3])
+lfsr113(uint32_t z[4])
 {
-#define TAUSWORTHE(s,a,b,c,d) ((s & c) << d) ^ (((s <<a) ^ s) >> b)
-    state[0] = TAUSWORTHE(state[0], 13U, 19U, 4294967294U, 12);
-    state[1] = TAUSWORTHE(state[1], 2U, 25U, 4294967288U, 4);
-    state[2] = TAUSWORTHE(state[2], 3U, 11U, 4294967280U, 17);
-#undef TAUSWORTHE
-
-    return (state[0] ^ state[1] ^ state[2]);
+    uint32_t b;
+    b = (((z[0] << 6u) ^ z[0]) >> 13u);
+    z[0] = (((z[0] & 4294967294u) << 18u) ^ b);
+    b = (((z[1] << 2u) ^ z[1]) >> 27u);
+    z[1] = (((z[1] & 4294967288u) << 2u) ^ b);
+    b = (((z[2] << 13u) ^ z[2]) >> 21u);
+    z[2] = (((z[2] & 4294967280u) << 7u) ^ b);
+    b = (((z[3] << 3u) ^ z[3]) >> 12u);
+    z[3] = (((z[3] & 4294967168u) << 13u) ^ b);
+    return (z[0] ^ z[1] ^ z[2] ^ z[3]);
 }
 
 static void
-tausinit(uint32_t state[3],
-         uint32_t seed)
+lfsr113_init(uint32_t state[4])
 {
-    if (seed == 0) {
-        seed = 1;
-    }
-
-#define LCG(n) ((69069U * (n)) & 0xFFFFFFFFU)
-    state[0] = LCG(seed);
-    state[1] = LCG(state[0]);
-    state[2] = LCG(state[1]);
-#undef LCG
-
-    tausrand(state);
-    tausrand(state);
-    tausrand(state);
-    tausrand(state);
-    tausrand(state);
-    tausrand(state);
+    // The initial seeds z[0] - z [3]  MUST be larger than 1, 7, 15, and 127 respectively.
+    const uint32_t seed = 12345;
+    state[0] = seed;
+    state[1] = seed;
+    state[2] = seed;
+    state[3] = seed;
+    lfsr113(state);
+    lfsr113(state);
+    lfsr113(state);
+    lfsr113(state);
+    lfsr113(state);
+    lfsr113(state);
 }
 
 bool_t
@@ -101,14 +94,14 @@ dither_init(const int n_channels,
     dither_randtab_size = n_channels * spacing + 1;
 
     { // generate random number table
-        uint32_t state[3];
+        uint32_t state[4];
 
         pinfo("Dither table size is %d bytes.\n"
               "Generating random numbers...", dither_randtab_size);
-        tausinit(state, 0);
+        lfsr113_init(state);
         dither_randtab = emallocaligned(dither_randtab_size);
         for (int n = 0; n < dither_randtab_size; n++) {
-            dither_randtab[n] = (int8_t)(tausrand(state) & 0x000000FF);
+            dither_randtab[n] = (int8_t)(lfsr113(state) & 0x000000FF);
         }
         pinfo("finished.\n");
     }
