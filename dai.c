@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006, 2013, 2016 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2013, 2016, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -34,6 +34,7 @@
 #include "fdrw.h"
 #include "pinfo.h"
 #include "delay.h"
+#include "compat.h"
 #include "timermacros.h"
 #include "numunion.h"
 
@@ -41,6 +42,8 @@
 
 #define CB_MSG_START 1
 #define CB_MSG_STOP 2
+
+struct dai_buffer_format *dai_buffer_format[2] = { NULL, NULL };
 
 struct subdev {
     volatile bool_t finished;
@@ -73,38 +76,66 @@ struct comarea {
     volatile int cb_frames_left;
     volatile bool_t is_muted[2][BF_MAXCHANNELS];
     volatile int delay[2][BF_MAXCHANNELS];
-    volatile pid_t pid[2];
-    volatile pid_t callback_pid;
+    volatile bf_pid_t pid[2];
+    volatile bf_pid_t callback_pid;
     struct subdev dev[2][BF_MAXCHANNELS];
     struct dai_buffer_format buffer_format[2];
     int buffer_id;
     volatile int cb_buf_index[2];
 };
 
-struct dai_buffer_format *dai_buffer_format[2] = { NULL, NULL };
-
-static void *iobuffers[2][2];
 static struct comarea *ca = NULL;
-static int n_devs[2] = { 0, 0 };
-static int n_fd_devs[2] = { 0, 0 };
-static fd_set dev_fds[2];
-static fd_set clocked_wfds;
-static int n_clocked_devs = 0;
-static int dev_fdn[2] = { 0, 0 };
-static int min_block_size[2] = { 0, 0 };
-static int cb_min_block_size[2] = { 0, 0 };
-static bool_t input_poll_mode = false;
-static struct subdev *dev[2][BF_MAXCHANNELS];
-static struct subdev *fd2dev[2][FD_SETSIZE];
-static struct subdev *ch2dev[2][BF_MAXCHANNELS];
-static int period_size;
-static int sample_rate;
-static int monitor_rate_fd = -1;
-static int synchpipe[2][2], paramspipe_s[2][2], paramspipe_r[2][2];
-static int cbpipe_s[2], cbpipe_r[2];
-static int cbmutex_pipe[2][2];
-static int cbreadywait_pipe[2][2];
-static volatile int callback_ready_waiting[2] = { 0, 0 };
+static struct {
+    void *iobuffers[2][2];
+    int n_devs[2];
+    int n_fd_devs[2];
+    fd_set dev_fds[2];
+    fd_set clocked_wfds;
+    int n_clocked_devs;
+    int dev_fdn[2];
+    int min_block_size[2];
+    int cb_min_block_size[2];
+    bool_t input_poll_mode;
+    struct subdev *dev[2][BF_MAXCHANNELS];
+    struct subdev *fd2dev[2][FD_SETSIZE];
+    struct subdev *ch2dev[2][BF_MAXCHANNELS];
+    int period_size;
+    int sample_rate;
+    int monitor_rate_fd;
+    bf_sem_t synchpipe[2];
+    bf_sem_t cbmutex_pipe[2];
+    bf_sem_t cbreadywait_pipe[2];
+    bf_sem_t cbpipe_s;
+    bf_sem_t cbpipe_r;
+    int paramspipe_s[2][2];
+    int paramspipe_r[2][2];
+    volatile int callback_ready_waiting[2];
+} glob = {
+    .iobuffers = {},
+    .n_devs = { 0, 0 },
+    .n_fd_devs = { 0, 0 },
+    .dev_fds = {},
+    .clocked_wfds = {},
+    .n_clocked_devs = 0,
+    .dev_fdn = { 0, 0 },
+    .min_block_size = { 0, 0 },
+    .cb_min_block_size = { 0, 0 },
+    .input_poll_mode = false,
+    .dev = {},
+    .fd2dev = {},
+    .ch2dev = {},
+    .period_size = 0,
+    .sample_rate = 0,
+    .monitor_rate_fd = -1,
+    .synchpipe = {},
+    .cbmutex_pipe = {},
+    .cbreadywait_pipe = {},
+    .cbpipe_s = {},
+    .cbpipe_r = {},
+    .paramspipe_s = {},
+    .paramspipe_r = {},
+    .callback_ready_waiting = { 0, 0 }
+};
 
 static int
 process_callback(void **state[2],
@@ -112,34 +143,25 @@ process_callback(void **state[2],
                  void **buffers[2],
                  int frame_count,
                  int event);
-    
+
 static void
 cbmutex(int io,
         bool_t lock)
 {
-    char dummy = 0;
-
     if (lock) {
-        if (!readfd(cbmutex_pipe[io][0], &dummy, 1)) {
-            bf_exit(BF_EXIT_OTHER);
-        }
+        bf_sem_wait(&glob.cbmutex_pipe[io]);
     } else {
-        if (!writefd(cbmutex_pipe[io][1], &dummy, 1)) {
-            bf_exit(BF_EXIT_OTHER);
-        }
+        bf_sem_post(&glob.cbmutex_pipe[io]);
     }
 }
 
 static bool_t
 output_finish(void)
 {
-    bool_t finished;
-    int n;
-
     cbmutex(OUT, true);
-    finished = true;
-    for (n = 0; n < n_devs[OUT]; n++) {
-        if (!dev[OUT][n]->finished) {
+    bool_t finished = true;
+    for (int n = 0; n < glob.n_devs[OUT]; n++) {
+        if (!glob.dev[OUT][n]->finished) {
             finished = false;
             break;
         }
@@ -153,88 +175,74 @@ output_finish(void)
 }
 
 static void
-update_devmap(int idx,
-	      int io)
+update_devmap(const int idx,
+	      const int io)
 {
-    int n;
-
-    if (dev[io][idx]->fd >= 0) {
-        FD_SET(dev[io][idx]->fd, &dev_fds[io]);
-        if (dev[io][idx]->fd > dev_fdn[io]) {
-            dev_fdn[io] = dev[io][idx]->fd;
+    struct subdev *sd = glob.dev[io][idx];
+    if (sd->fd >= 0) {
+        FD_SET(sd->fd, &glob.dev_fds[io]);
+        if (sd->fd > glob.dev_fdn[io]) {
+            glob.dev_fdn[io] = sd->fd;
         }
-        fd2dev[io][dev[io][idx]->fd] = dev[io][idx];
+        glob.fd2dev[io][sd->fd] = sd;
     }
-    for (n = 0; n < dev[io][idx]->channels.used_channels; n++) {
-	ch2dev[io][dev[io][idx]->channels.channel_name[n]] = dev[io][idx];
+    for (int n = 0; n < sd->channels.used_channels; n++) {
+	glob.ch2dev[io][sd->channels.channel_name[n]] = sd;
     }
 }
 
 /* if noninterleaved, update channel layout to fit the noninterleaved access
    mode (it is setup for interleaved layout per default). */
 static void
-noninterleave_modify(int idx,
-		     int io)
+noninterleave_modify(const int idx,
+		     const int io)
 {
-    int n;
-    
-    if (!dev[io][idx]->isinterleaved) {
-	dev[io][idx]->channels.open_channels =
-	    dev[io][idx]->channels.used_channels;
-	for (n = 0; n < dev[io][idx]->channels.used_channels; n++) {
-	    dev[io][idx]->channels.channel_selection[n] = n;
+    struct subdev *sd = glob.dev[io][idx];
+    if (!sd->isinterleaved) {
+	sd->channels.open_channels = sd->channels.used_channels;
+	for (int n = 0; n < sd->channels.used_channels; n++) {
+	    sd->channels.channel_selection[n] = n;
 	}
     }
 }
 
 static void
 update_delay(struct subdev *sd,
-             int io,
+             const int io,
              uint8_t *buf)
 {
-    struct buffer_format *bf;
-    int n, newdelay, virtch;
-
     if (sd->db == NULL) {
         return;
     }
-    for (n = 0; n < sd->channels.used_channels; n++) {
+    for (int n = 0; n < sd->channels.used_channels; n++) {
         if (sd->db[n] == NULL) {
             continue;
         }
-        bf = &dai_buffer_format[io]->bf[sd->channels.channel_name[n]];
-        virtch = bfconf->phys2virt[io][sd->channels.channel_name[n]][0];
-        newdelay = ca->delay[io][sd->channels.channel_name[n]];
-        if (bfconf->use_subdelay[io] &&
-            bfconf->subdelay[io][virtch] == BF_UNDEFINED_SUBDELAY)
-        {
+        const struct buffer_format *bf = &dai_buffer_format[io]->bf[sd->channels.channel_name[n]];
+        const int virtch = bfconf->phys2virt[io][sd->channels.channel_name[n]][0];
+        int newdelay = ca->delay[io][sd->channels.channel_name[n]];
+        if (bfconf->use_subdelay[io] && bfconf->subdelay[io][virtch] == BF_UNDEFINED_SUBDELAY) {
             newdelay += bfconf->sdf_length;
         }
-        delay_update(sd->db[n], (void *)&buf[bf->byte_offset],
-                     bf->sf.bytes, bf->sample_spacing, newdelay, NULL);
+        delay_update(sd->db[n], (void *)&buf[bf->byte_offset], bf->sf.bytes, bf->sample_spacing, newdelay, NULL);
     }
 }
 
 static void
 allocate_delay_buffers(int io,
-		       struct subdev *sd)
+                       struct subdev *sd)
 {
-    int n, virtch, extra_delay;
-
-    sd->db = emalloc(sd->channels.used_channels *
-		     sizeof(delaybuffer_t *));
-    for (n = 0; n < sd->channels.used_channels; n++) {
+    sd->db = emalloc(sd->channels.used_channels * sizeof(delaybuffer_t *));
+    for (int n = 0; n < sd->channels.used_channels; n++) {
 	/* check if we need a delay buffer here, that is if at least one
 	   channel has a direct virtual to physical mapping */
 	if (bfconf->n_virtperphys[io][sd->channels.channel_name[n]] == 1) {
-            virtch = bfconf->phys2virt[io][sd->channels.channel_name[n]][0];
-            extra_delay = 0;
-            if (bfconf->use_subdelay[io] &&
-                bfconf->subdelay[io][virtch] == BF_UNDEFINED_SUBDELAY)
-            {
+            const int virtch = bfconf->phys2virt[io][sd->channels.channel_name[n]][0];
+            int extra_delay = 0;
+            if (bfconf->use_subdelay[io] && bfconf->subdelay[io][virtch] == BF_UNDEFINED_SUBDELAY) {
                 extra_delay = bfconf->sdf_length;
             }
-	    sd->db[n] = delay_allocate_buffer(period_size,
+	    sd->db[n] = delay_allocate_buffer(glob.period_size,
 					      bfconf->delay[io][virtch] +
                                               extra_delay,
 					      bfconf->maxdelay[io][virtch] +
@@ -250,22 +258,16 @@ allocate_delay_buffers(int io,
 
 static void
 do_mute(struct subdev *sd,
-	int io,
-	int wsize,
-	void *_buf,
-	int offset)
+	const int io,
+	const int wsize,
+	void *buf_,
+	const int offset)
 {
-    int n, i, k, n_mute = 0, ch[sd->channels.used_channels], framesize;
-    int bsch[sd->channels.used_channels], mid_offset;
-    uint8_t *endp, *p, *startp;
-    numunion_t *buf;
-    uint16_t *p16;
-    uint32_t *p32;
-    uint64_t *p64;
-
-    buf = (numunion_t *)_buf;
-    /* Calculate which channels that should be cleared */
-    for (n = 0; n < sd->channels.used_channels; n++) {
+    // Calculate which channels that should be cleared
+    int ch[sd->channels.used_channels];
+    int bsch[sd->channels.used_channels];
+    int n_mute = 0;
+    for (int n = 0; n < sd->channels.used_channels; n++) {
 	if (ca->is_muted[io][sd->channels.channel_name[n]]) {
 	    ch[n_mute] = sd->channels.channel_selection[n];
 	    bsch[n_mute] = ch[n_mute] * sd->channels.sf.bytes;
@@ -276,27 +278,27 @@ do_mute(struct subdev *sd,
 	return;
     }
 
+    numunion_t *buf = (numunion_t *)buf_;
     if (!sd->isinterleaved) {
-	offset /= sd->channels.open_channels;
-	wsize /= sd->channels.open_channels;
-        p = &buf->u8[offset];
-	i = period_size * sd->channels.sf.bytes;
-	for (n = 0; n < n_mute; n++) {
-	    memset(p + ch[n] * i, 0, wsize);
+        // non-interleaved case, trivial
+        uint8_t *p = &buf->u8[offset / sd->channels.open_channels];
+	for (int n = 0; n < n_mute; n++) {
+	    memset(p + ch[n] * glob.period_size * sd->channels.sf.bytes, 0, wsize / sd->channels.open_channels);
 	}
 	return;
     }
 
-    startp = &buf->u8[offset];
-    endp = &buf->u8[offset] + wsize;
-    framesize = sd->channels.open_channels * sd->channels.sf.bytes;
-    mid_offset = offset;
-    if ((i = offset % framesize) != 0) {
-	for (k = 0; k < n_mute && bsch[k] + sd->channels.sf.bytes <= i; k++);
-	for (n = i, p = startp;
-	     p < startp + framesize - i && p < endp;
-	     p++, n++)
-	{
+    // interleaved case, a bit more messy
+    uint8_t * const startp = &buf->u8[offset];
+    uint8_t * const endp = &buf->u8[offset] + wsize;
+    const int framesize = sd->channels.open_channels * sd->channels.sf.bytes;
+    const int head = offset % framesize;
+    int mid_offset = offset;
+    if (head != 0) {
+        int k;
+	for (k = 0; k < n_mute && bsch[k] + sd->channels.sf.bytes <= head; k++);
+        uint8_t *p = startp;
+	for (int n = head; p < startp + framesize - head && p < endp; p++, n++) {
 	    if (n >= bsch[k] && n < bsch[k] + sd->channels.sf.bytes) {
 		*p = 0;
 		if (n == bsch[k] + sd->channels.sf.bytes) {
@@ -309,264 +311,227 @@ do_mute(struct subdev *sd,
 	if (p == endp) {
 	    return;
 	}
-	mid_offset += framesize - i;
+	mid_offset += framesize - head;
     }
-
     switch (sd->channels.sf.bytes) {
     case 1:
-	for (p = &buf->u8[mid_offset];
-             p < endp;
-             p += sd->channels.open_channels)
-        {
-	    for (n = 0; n < n_mute; n++) {
+	for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += sd->channels.open_channels) {
+	    for (int n = 0; n < n_mute; n++) {
 		p[ch[n]] = 0;
 	    }
 	}
 	break;
     case 2:
-	for (p16 = &buf->u16[mid_offset>>1];
-             (uint8_t *)p16 < endp;
-             p16 += sd->channels.open_channels)
-        {
-	    for (n = 0; n < n_mute; n++) {
+	for (uint16_t *p16 = &buf->u16[mid_offset>>1]; (uint8_t *)p16 < endp; p16 += sd->channels.open_channels) {
+	    for (int n = 0; n < n_mute; n++) {
 		p16[ch[n]] = 0;
 	    }
 	}
 	break;
     case 3:
-	for (p = &buf->u8[mid_offset];
-             p < endp;
-             p += sd->channels.open_channels)
-        {
-	    for (n = 0; n < n_mute; n++) {
+	for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += sd->channels.open_channels) {
+	    for (int n = 0; n < n_mute; n++) {
 		p[bsch[n]+0] = 0;
 		p[bsch[n]+1] = 0;
 		p[bsch[n]+2] = 0;
 	    }
 	}
     case 4: {
-	for (p32 = &buf->u32[mid_offset>>2];
-             (uint8_t *)p32 < endp;
-             p32 += sd->channels.open_channels)
-        {
-	    for (n = 0; n < n_mute; n++) {
+	for (uint32_t *p32 = &buf->u32[mid_offset>>2]; (uint8_t *)p32 < endp; p32 += sd->channels.open_channels) {
+	    for (int n = 0; n < n_mute; n++) {
 		p32[ch[n]] = 0;
 	    }
 	}
 	break;
     }
     case 8: {
-	for (p64 = &buf->u64[mid_offset>>3];
-             (uint8_t *)p64 < endp;
-             p64 += sd->channels.open_channels)
-        {
-	    for (n = 0; n < n_mute; n++) {
+	for (uint64_t *p64 = &buf->u64[mid_offset>>3]; (uint8_t *)p64 < endp; p64 += sd->channels.open_channels) {
+	    for (int n = 0; n < n_mute; n++) {
 		p64[ch[n]] = 0;
 	    }
 	}
 	break;
     }
     default:
-	fprintf(stderr, "Sample byte size %d not supported.\n",
-		sd->channels.sf.bytes);
+	fprintf(stderr, "Sample byte size %d not supported.\n", sd->channels.sf.bytes);
 	bf_exit(BF_EXIT_OTHER);
 	break;
     }
-    
-    if ((i = (offset + wsize) % framesize) != 0) {
-	if ((p = endp - i) < startp) {
-	    return;
-	}	
-	for (n = k = 0; p < endp; p++, n++) {
-	    if (n >= bsch[k] && n < bsch[k] + sd->channels.sf.bytes) {
-		*p = 0;
-		if (n == bsch[k] + sd->channels.sf.bytes) {
-		    if (++k == n_mute) {
-			break;
-		    }
-		}
-	    }
+
+    const int tail = (offset + wsize) % framesize;
+    if (tail != 0) {
+        uint8_t *p = endp - tail;
+	if (p >= startp) {
+            for (int n = 0, k = 0; p < endp; p++, n++) {
+                if (n >= bsch[k] && n < bsch[k] + sd->channels.sf.bytes) {
+                    *p = 0;
+                    if (n == bsch[k] + sd->channels.sf.bytes) {
+                        if (++k == n_mute) {
+                            break;
+                        }
+                    }
+                }
+            }
 	}
     }
 }
 
 static bool_t
-init_input(struct dai_subdevice *subdev,
-	   int idx)
+init_input(const struct dai_subdevice *dai_subdev,
+	   const int idx)
 {
     int fd;
-    
-    dev[IN][idx]->uses_callback = bfconf->iomods[subdev->module].iscallback;
-    dev[IN][idx]->channels = subdev->channels;
-    dev[IN][idx]->uses_clock = subdev->uses_clock;
-    dev[IN][idx]->module = &bfconf->iomods[subdev->module];
-    dev[IN][idx]->index = idx;
 
-    if ((fd = dev[IN][idx]->module->init(subdev->params,
-                                         IN,
-                                         subdev->channels.sf.format,
-                                         sample_rate,
-                                         subdev->channels.open_channels,
-                                         subdev->channels.used_channels,
-                                         subdev->channels.channel_selection,
-                                         period_size,
-                                         &dev[IN][idx]->block_size_frames,
-                                         &dev[IN][idx]->isinterleaved,
-                                         dev[IN][idx]->uses_callback ?
-                                         dev[IN][idx] : NULL,
-                                         dev[IN][idx]->uses_callback ?
-                                         process_callback : NULL)) == -1)
+    struct subdev *sd = glob.dev[IN][idx];
+    sd->uses_callback = bfconf->iomods[dai_subdev->module].iscallback;
+    sd->channels = dai_subdev->channels;
+    sd->uses_clock = dai_subdev->uses_clock;
+    sd->module = &bfconf->iomods[dai_subdev->module];
+    sd->index = idx;
+
+    if ((fd = sd->module->init(dai_subdev->params,
+                               IN,
+                               dai_subdev->channels.sf.format,
+                               glob.sample_rate,
+                               dai_subdev->channels.open_channels,
+                               dai_subdev->channels.used_channels,
+                               dai_subdev->channels.channel_selection,
+                               glob.period_size,
+                               &sd->block_size_frames,
+                               &sd->isinterleaved,
+                               sd->uses_callback ?
+                               sd : NULL,
+                               sd->uses_callback ?
+                               process_callback : NULL)) == -1)
     {
         fprintf(stderr, "Failed to init input device.\n");
 	return false;
     }
-    if (dev[IN][idx]->uses_callback) {
-        dev[IN][idx]->fd = -1;
-        if (dev[IN][idx]->block_size_frames == 0 ||
-            period_size % dev[IN][idx]->block_size_frames != 0)
-        {
-            fprintf(stderr, "Invalid block size for callback input.\n");
+    if (sd->uses_callback) {
+        sd->fd = -1;
+        if (sd->block_size_frames == 0 || glob.period_size % sd->block_size_frames != 0) {
+            fprintf(stderr, "Invalid block size for callback input. Got %d, expected multiple of %d.\n",
+                    sd->block_size_frames, glob.period_size);
             return false;
         }
-        if (dev[IN][idx]->uses_clock &&
-            (dev[IN][idx]->block_size_frames < cb_min_block_size[IN] ||
-             cb_min_block_size[IN] == 0))
-        {
-            cb_min_block_size[IN] = dev[IN][idx]->block_size_frames;
+        if (sd->uses_clock && (sd->block_size_frames < glob.cb_min_block_size[IN] || glob.cb_min_block_size[IN] == 0)) {
+            glob.cb_min_block_size[IN] = sd->block_size_frames;
         }
     } else {
-        n_fd_devs[IN]++;
-        dev[IN][idx]->fd = fd;
-        if (bfconf->monitor_rate && monitor_rate_fd == -1 &&
-            subdev->uses_clock)
-        {
-            monitor_rate_fd = dev[IN][idx]->fd;
+        glob.n_fd_devs[IN]++;
+        sd->fd = fd;
+        if (bfconf->monitor_rate && glob.monitor_rate_fd == -1 && dai_subdev->uses_clock) {
+            glob.monitor_rate_fd = sd->fd;
         }
-        if (dev[IN][idx]->uses_clock && dev[IN][idx]->block_size_frames != 0 &&
-            (dev[IN][idx]->block_size_frames < min_block_size[IN] ||
-             min_block_size[IN] == 0))
+        if (sd->uses_clock && sd->block_size_frames != 0 &&
+            (sd->block_size_frames < glob.min_block_size[IN] ||
+             glob.min_block_size[IN] == 0))
         {
-            min_block_size[IN] = dev[IN][idx]->block_size_frames;
+            glob.min_block_size[IN] = sd->block_size_frames;
         }
     }
-    dev[IN][idx]->isinterleaved = !!dev[IN][idx]->isinterleaved;
-    if (dev[IN][idx]->uses_clock &&
-        period_size % dev[IN][idx]->block_size_frames != 0)
-    {
-        dev[IN][idx]->bad_alignment = true;
+    sd->isinterleaved = !!sd->isinterleaved;
+    if (sd->uses_clock && glob.period_size % sd->block_size_frames != 0) {
+        sd->bad_alignment = true;
     }
     noninterleave_modify(idx, IN);
-    dev[IN][idx]->block_size = dev[IN][idx]->block_size_frames *
-        dev[IN][idx]->channels.open_channels *
-        dev[IN][idx]->channels.sf.bytes;
-    allocate_delay_buffers(IN, dev[IN][idx]);
+    sd->block_size = sd->block_size_frames * sd->channels.open_channels * sd->channels.sf.bytes;
+    allocate_delay_buffers(IN, sd);
     update_devmap(idx, IN);
     return true;
 }
 
 static bool_t
-init_output(struct dai_subdevice *subdev,
-	    int idx)
+init_output(const struct dai_subdevice *dai_subdev,
+	    const int idx)
 {
     int fd;
-    
-    dev[OUT][idx]->uses_callback = bfconf->iomods[subdev->module].iscallback;
-    dev[OUT][idx]->channels = subdev->channels;
-    dev[OUT][idx]->uses_clock = subdev->uses_clock;
-    dev[OUT][idx]->module = &bfconf->iomods[subdev->module];
-    dev[OUT][idx]->index = idx;
-    
-    if ((fd = dev[OUT][idx]->module->init(subdev->params,
-                                          OUT,
-                                          subdev->channels.sf.format,
-                                          sample_rate,
-                                          subdev->channels.open_channels,
-                                          subdev->channels.used_channels,
-                                          subdev->channels.channel_selection,
-                                          period_size,
-                                          &dev[OUT][idx]->block_size_frames,
-                                          &dev[OUT][idx]->isinterleaved,
-                                          dev[OUT][idx]->uses_callback ?
-                                          dev[OUT][idx] : NULL,
-                                          dev[OUT][idx]->uses_callback ?
-                                          process_callback : NULL)) == -1)
+
+    struct subdev *sd = glob.dev[OUT][idx];
+    sd->uses_callback = bfconf->iomods[dai_subdev->module].iscallback;
+    sd->channels = dai_subdev->channels;
+    sd->uses_clock = dai_subdev->uses_clock;
+    sd->module = &bfconf->iomods[dai_subdev->module];
+    sd->index = idx;
+
+    if ((fd = sd->module->init(dai_subdev->params,
+                               OUT,
+                               dai_subdev->channels.sf.format,
+                               glob.sample_rate,
+                               dai_subdev->channels.open_channels,
+                               dai_subdev->channels.used_channels,
+                               dai_subdev->channels.channel_selection,
+                               glob.period_size,
+                               &sd->block_size_frames,
+                               &sd->isinterleaved,
+                               sd->uses_callback ?
+                               sd : NULL,
+                               sd->uses_callback ?
+                               process_callback : NULL)) == -1)
     {
         fprintf(stderr, "Failed to init output device.\n");
 	return false;
     }
-    if (dev[OUT][idx]->uses_callback) {
-        dev[OUT][idx]->fd = -1;
-        if (dev[OUT][idx]->block_size_frames == 0 ||
-            period_size % dev[OUT][idx]->block_size_frames != 0)
-        {
+    if (sd->uses_callback) {
+        sd->fd = -1;
+        if (sd->block_size_frames == 0 || glob.period_size % sd->block_size_frames != 0) {
             fprintf(stderr, "Invalid block size for callback output.\n");
             return false;
         }
-        if (dev[OUT][idx]->uses_clock &&
-            (dev[OUT][idx]->block_size_frames < cb_min_block_size[OUT] ||
-             cb_min_block_size[OUT] == 0))
-        {
-            cb_min_block_size[OUT] = dev[OUT][idx]->block_size_frames;
+        if (sd->uses_clock && (sd->block_size_frames < glob.cb_min_block_size[OUT] || glob.cb_min_block_size[OUT] == 0)) {
+            glob.cb_min_block_size[OUT] = sd->block_size_frames;
         }
     } else {
-        n_fd_devs[OUT]++;
-        dev[OUT][idx]->fd = fd;
-        if (dev[OUT][idx]->uses_clock) {
-            FD_SET(dev[OUT][idx]->fd, &clocked_wfds);
-            n_clocked_devs++;
+        glob.n_fd_devs[OUT]++;
+        sd->fd = fd;
+        if (sd->uses_clock) {
+            FD_SET(sd->fd, &glob.clocked_wfds);
+            glob.n_clocked_devs++;
         }
-        if (dev[OUT][idx]->uses_clock &&
-            dev[OUT][idx]->block_size_frames != 0 &&
-            (dev[OUT][idx]->block_size_frames < min_block_size[OUT] ||
-             min_block_size[OUT] == 0))
+        if (sd->uses_clock &&
+            sd->block_size_frames != 0 &&
+            (sd->block_size_frames < glob.min_block_size[OUT] ||
+             glob.min_block_size[OUT] == 0))
         {
-            min_block_size[OUT] = dev[OUT][idx]->block_size_frames;
+            glob.min_block_size[OUT] = sd->block_size_frames;
         }
     }
-    dev[OUT][idx]->isinterleaved = !!dev[OUT][idx]->isinterleaved;
+    sd->isinterleaved = !!sd->isinterleaved;
     noninterleave_modify(idx, OUT);
-    dev[OUT][idx]->block_size = dev[OUT][idx]->block_size_frames *
-        dev[OUT][idx]->channels.open_channels *
-        dev[OUT][idx]->channels.sf.bytes;
-    allocate_delay_buffers(OUT, dev[OUT][idx]);
+    sd->block_size = sd->block_size_frames * sd->channels.open_channels * sd->channels.sf.bytes;
+    allocate_delay_buffers(OUT, sd);
     update_devmap(idx, OUT);
     return true;
 }
 
 static void
-calc_buffer_format(int fragsize,
-		   int io,
+calc_buffer_format(const int fragsize,
+		   const int io,
 		   struct dai_buffer_format *format)
 {
-    int n, i, ch;
-    
     format->n_samples = fragsize;
     format->n_channels = 0;
     format->n_bytes = 0;
-    for (n = 0; n < n_devs[io]; n++) {
-	dev[io][n]->buf_offset = format->n_bytes;
-	format->n_channels += dev[io][n]->channels.used_channels;
-	for (i = 0; i < dev[io][n]->channels.used_channels; i++) {
-	    ch = dev[io][n]->channels.channel_name[i];
-	    format->bf[ch].sf = dev[io][n]->channels.sf;
-	    if (dev[io][n]->isinterleaved) {
-		format->bf[ch].byte_offset = format->n_bytes +
-		    dev[io][n]->channels.channel_selection[i] *
-		    dev[io][n]->channels.sf.bytes;
-		format->bf[ch].sample_spacing =
-		    dev[io][n]->channels.open_channels;
+    for (int n = 0; n < glob.n_devs[io]; n++) {
+        struct subdev *sd = glob.dev[io][n];
+	sd->buf_offset = format->n_bytes;
+	format->n_channels += sd->channels.used_channels;
+	for (int i = 0; i < sd->channels.used_channels; i++) {
+	    int ch = sd->channels.channel_name[i];
+	    format->bf[ch].sf = sd->channels.sf;
+	    if (sd->isinterleaved) {
+		format->bf[ch].byte_offset = format->n_bytes + sd->channels.channel_selection[i] * sd->channels.sf.bytes;
+		format->bf[ch].sample_spacing = sd->channels.open_channels;
 	    } else {
 		format->bf[ch].byte_offset = format->n_bytes;
 		format->bf[ch].sample_spacing = 1;
-		format->n_bytes += dev[io][n]->channels.sf.bytes * fragsize;
+		format->n_bytes += sd->channels.sf.bytes * fragsize;
 	    }
 	}
-	dev[io][n]->buf_size = dev[io][n]->buf_left =
-	    dev[io][n]->channels.open_channels *
-	    dev[io][n]->channels.sf.bytes * fragsize;
+	sd->buf_size = sd->buf_left = sd->channels.open_channels * sd->channels.sf.bytes * fragsize;
 
-	if (dev[io][n]->isinterleaved) {
-	    format->n_bytes += dev[io][n]->buf_size;
+	if (sd->isinterleaved) {
+	    format->n_bytes += sd->buf_size;
 	}
 	if (format->n_bytes % ALIGNMENT != 0) {
 	    format->n_bytes += ALIGNMENT - format->n_bytes % ALIGNMENT;
@@ -575,16 +540,16 @@ calc_buffer_format(int fragsize,
 }
 
 static void
-handle_params(int io)
+handle_params(const int io)
 {
     char *params, *msgstr = NULL;
     int size, ans, subdev_index;
-    
-    if (!readfd(paramspipe_s[io][0], &subdev_index, sizeof(int))) {
+
+    if (!readfd(glob.paramspipe_s[io][0], &subdev_index, sizeof(int))) {
 	fprintf(stderr, "Failed to read from pipe.\n");
 	bf_exit(BF_EXIT_OTHER);
     }
-    if (!readfd(paramspipe_s[io][0], &size, sizeof(int))) {
+    if (!readfd(glob.paramspipe_s[io][0], &size, sizeof(int))) {
         fprintf(stderr, "Failed to read from pipe.\n");
         bf_exit(BF_EXIT_OTHER);
     }
@@ -592,25 +557,25 @@ handle_params(int io)
         fprintf(stderr, "Could not allocate %d bytes on stack.\n", size);
         bf_exit(BF_EXIT_OTHER);
     }
-    if (!readfd(paramspipe_s[io][0], params, size)) {
+    if (!readfd(glob.paramspipe_s[io][0], params, size)) {
         fprintf(stderr, "Failed to read from pipe.\n");
         bf_exit(BF_EXIT_OTHER);
-    }	
-    if (dev[io][subdev_index]->module->command == NULL) {
+    }
+    struct subdev *sd = glob.dev[io][subdev_index];
+    if (sd->module->command == NULL) {
         ans = -1;
         msgstr = estrdup("Module does not support any commands");
     } else {
-        ans = dev[io][subdev_index]->module->
-            command(dev[io][subdev_index]->fd, params);
-        msgstr = estrdup(dev[io][subdev_index]->module->message());
+        ans = sd->module->command(sd->fd, params);
+        msgstr = estrdup(sd->module->message());
     }
-    if (!writefd(paramspipe_r[io][1], &ans, sizeof(int))) {
+    if (!writefd(glob.paramspipe_r[io][1], &ans, sizeof(int))) {
         fprintf(stderr, "Failed to write to pipe.\n");
         bf_exit(BF_EXIT_OTHER);
     }
     size = strlen(msgstr) + 1;
-    if (!writefd(paramspipe_r[io][1], &size, sizeof(int)) ||
-        !writefd(paramspipe_r[io][1], msgstr, size))
+    if (!writefd(glob.paramspipe_r[io][1], &size, sizeof(int)) ||
+        !writefd(glob.paramspipe_r[io][1], msgstr, size))
     {
         fprintf(stderr, "Failed to write to pipe.\n");
         bf_exit(BF_EXIT_OTHER);
@@ -622,27 +587,21 @@ static bool_t
 callback_init(int n_subdevs[2],
               struct dai_subdevice *subdevs[2])
 {
-    int n;
+    bf_sem_init(&glob.cbreadywait_pipe[IN]);
+    bf_sem_init(&glob.cbreadywait_pipe[OUT]);
 
-    if (pipe(cbreadywait_pipe[IN]) == -1 ||
-        pipe(cbreadywait_pipe[OUT]) == -1)
-    {
-        fprintf(stderr, "Failed to create pipe: %s.\n", strerror(errno));
-        return false;
-    }
-    
     /* initialise inputs */
-    for (n = 0; n < n_subdevs[IN]; n++) {
+    for (int n = 0; n < n_subdevs[IN]; n++) {
         if (!bfconf->iomods[subdevs[IN][n].module].iscallback) {
             continue;
         }
 	if (!init_input(&subdevs[IN][n], n)) {
 	    return false;
 	}
-    }    
-    
+    }
+
     /* initialise outputs */
-    for (n = 0; n < n_subdevs[OUT]; n++) {
+    for (int n = 0; n < n_subdevs[OUT]; n++) {
         if (!bfconf->iomods[subdevs[OUT][n].module].iscallback) {
             continue;
         }
@@ -652,11 +611,11 @@ callback_init(int n_subdevs[2],
     }
 
     FOR_IN_AND_OUT {
-        for (n = 0; n < n_subdevs[IO]; n++) {
+        for (int n = 0; n < n_subdevs[IO]; n++) {
             if (!bfconf->iomods[subdevs[IO][n].module].iscallback) {
                 continue;
             }
-            if (dev[IO][n]->bad_alignment) {
+            if (glob.dev[IO][n]->bad_alignment) {
                 fprintf(stderr, "\
 Error: currently no support for bad callback I/O block alignment.\n\
   BruteFIR's partition length must be divisable with the sound server's\n\
@@ -671,48 +630,54 @@ Error: currently no support for bad callback I/O block alignment.\n\
 static void
 callback_process(int n_subdevs[2],
                  struct dai_subdevice *subdevs[2],
-                 pid_t wpid)
+                 bf_pid_t *wpid)
 {
-    uint8_t *buffer;
-    char msg;
-    int n;
-    
-    close(cbpipe_r[0]);
-    close(cbpipe_s[1]);
-    msg = (char)callback_init(n_subdevs, subdevs);
-    writefd(cbpipe_r[1], &msg, 1);
-    if (msg == 0) {
+    bf_sem_never_wait(&glob.cbpipe_r);
+    bf_sem_never_post(&glob.cbpipe_s);
+    uint8_t bool_msg = (uint8_t)!!callback_init(n_subdevs, subdevs);
+    bf_sem_postmsg(&glob.cbpipe_r, &bool_msg, 1);
+    if (!bool_msg) {
+        // callback_init() failed, wait for exit
         while (true) sleep(1000);
     }
-    readfd(cbpipe_s[0], &msg, 1);
-    /* attach I/O buffers */
-    if ((buffer = shmat(ca->buffer_id, NULL, 0)) == (void *)-1) {
-        fprintf(stderr, "Failed to attach to shared memory with id %d: "
-                "%s.\n", ca->buffer_id, strerror(errno));
-        msg = 0;
-    } else {
-        FOR_IN_AND_OUT {
-            iobuffers[IO][0] = buffer;
-            buffer += ca->buffer_format[IO].n_bytes;
-            iobuffers[IO][1] = buffer;
-            buffer += ca->buffer_format[IO].n_bytes;
+    bf_sem_waitmsg(&glob.cbpipe_s, &bool_msg, 1);
+    if (bf_is_fork_mode()) {
+        // attach I/O buffers
+        uint8_t *buffer;
+        if ((buffer = shmalloc_attach(ca->buffer_id)) == NULL) {
+            fprintf(stderr, "Failed to attach to shared memory with id %d: %s.\n", ca->buffer_id, strerror(errno));
+            bool_msg = false;
+        } else {
+            FOR_IN_AND_OUT {
+                glob.iobuffers[IO][0] = buffer;
+                buffer += ca->buffer_format[IO].n_bytes;
+                glob.iobuffers[IO][1] = buffer;
+                buffer += ca->buffer_format[IO].n_bytes;
+            }
+            bool_msg = true;
         }
-        msg = 1;
+    } else {
+        // threaded mode, we already have iobuffers shared
+        bool_msg = true;
     }
-    writefd(cbpipe_r[1], &msg, 1);
-    if (msg == 0) {
+    bf_sem_postmsg(&glob.cbpipe_r, &bool_msg, 1);
+    if (!bool_msg) {
+        // could not get buffers, wait for exit
         while (true) sleep(1000);
     }
     if (bfconf->realtime_priority) {
-        bf_make_realtime(getpid(), bfconf->realtime_midprio, "callback");
+        bf_make_realtime(bfconf->realtime_midprio, "callback");
     }
     while (true) {
-        if (!readfd(cbpipe_s[0], &msg, 1)) {
-            break;
-        }
+#warning removal of this break problematic?
+        uint8_t msg;
+        bf_sem_waitmsg(&glob.cbpipe_s, &msg, 1);
+        //if (!readfd(cbpipe_s[0], &msg, 1)) {
+        //    break;
+        //}
         switch ((int)msg) {
         case CB_MSG_START:
-            for (n = 0; n < bfconf->n_iomods; n++) {
+            for (int n = 0; n < bfconf->n_iomods; n++) {
                 if (!bfconf->iomods[n].iscallback) {
                     continue;
                 }
@@ -721,19 +686,19 @@ callback_process(int n_subdevs[2],
                     bf_exit(BF_EXIT_OTHER);
                 }
             }
-            if (wpid > 0) {
-                waitpid(wpid, &n, 0);
+            if (wpid != NULL) {
+                bf_wait_for_process_end(*wpid);
             }
             break;
         case CB_MSG_STOP:
-            for (n = 0; n < bfconf->n_iomods; n++) {
+            for (int n = 0; n < bfconf->n_iomods; n++) {
                 if (!bfconf->iomods[n].iscallback) {
                     continue;
                 }
                 bfconf->iomods[n].synch_stop();
             }
             msg = 1;
-            writefd(cbpipe_r[1], &msg, 1);
+            bf_sem_postmsg(&glob.cbpipe_r, &msg, 1);
             break;
         default:
             fprintf(stderr, "Bug: invalid msg %d, aborting.\n", (int)msg);
@@ -744,6 +709,20 @@ callback_process(int n_subdevs[2],
     while (true) sleep(1000);
 }
 
+struct callback_process_thread_args {
+    int n_subdevs[2];
+    struct dai_subdevice *subdevs[2];
+    bf_pid_t wpid;
+};
+
+static void
+callback_process_thread(void *arg)
+{
+    struct callback_process_thread_args a = *(struct callback_process_thread_args *)arg;
+    ca->callback_pid = bf_getpid();
+    callback_process(a.n_subdevs, a.subdevs, bfconf->blocking_io ? NULL : &a.wpid);
+}
+
 bool_t
 dai_init(int _period_size,
 	 int rate,
@@ -751,109 +730,110 @@ dai_init(int _period_size,
 	 struct dai_subdevice *subdevs[2],
          void *buffers[2][2])
 {
-    bool_t all_bad_alignment, none_clocked;
-    uint8_t *buffer;
-    char dummy = 0;
-    int n;
-    pid_t pid;
+    FD_ZERO(&glob.dev_fds[IN]);
+    FD_ZERO(&glob.dev_fds[OUT]);
+    FD_ZERO(&glob.clocked_wfds);
+    memset(glob.fd2dev, 0, sizeof(glob.fd2dev));
+    memset(glob.ch2dev, 0, sizeof(glob.ch2dev));
 
-    memset(dev_fds, 0, sizeof(dev_fds));
-    memset(&clocked_wfds, 0, sizeof(clocked_wfds));
-    memset(fd2dev, 0, sizeof(fd2dev));
-    memset(ch2dev, 0, sizeof(ch2dev));
-    
-    period_size = _period_size;
-    sample_rate = rate;
+    glob.period_size = _period_size;
+    glob.sample_rate = rate;
 
     /* allocate shared memory for interprocess communication */
-    if ((ca = shmalloc(sizeof(struct comarea))) == NULL) {
-	fprintf(stderr, "Failed to allocate shared memory.\n");
-	return false;
+    if ((ca = maybe_shmalloc(sizeof(struct comarea))) == NULL) {
+        fprintf(stderr, "Failed to allocate shared memory.\n");
+        return false;
     }
     memset(ca, 0, sizeof(struct comarea));
     ca->frames_left = -1;
     ca->cb_frames_left = -1;
     FOR_IN_AND_OUT {
-	dai_buffer_format[IO] = &ca->buffer_format[IO];
-	n_devs[IO] = n_subdevs[IO];
-	for (n = 0; n < bfconf->n_physical_channels[IO]; n++) {
-	    if (bfconf->n_virtperphys[IO][n] == 1) {
-		ca->delay[IO][n] =
-		    bfconf->delay[IO][bfconf->phys2virt[IO][n][0]];
-		ca->is_muted[IO][n] =
-		    bfconf->mute[IO][bfconf->phys2virt[IO][n][0]];
-	    } else {
-		ca->delay[IO][n] = 0;
-		ca->is_muted[IO][n] = false;
-	    }
-	}
-        for (n = 0; n < n_devs[IO]; n++) {
-            dev[IO][n] = &ca->dev[IO][n];
+        dai_buffer_format[IO] = &ca->buffer_format[IO];
+        glob.n_devs[IO] = n_subdevs[IO];
+        for (int n = 0; n < bfconf->n_physical_channels[IO]; n++) {
+            if (bfconf->n_virtperphys[IO][n] == 1) {
+                ca->delay[IO][n] = bfconf->delay[IO][bfconf->phys2virt[IO][n][0]];
+                ca->is_muted[IO][n] = bfconf->mute[IO][bfconf->phys2virt[IO][n][0]];
+            } else {
+                ca->delay[IO][n] = 0;
+                ca->is_muted[IO][n] = false;
+            }
+        }
+        for (int n = 0; n < glob.n_devs[IO]; n++) {
+            glob.dev[IO][n] = &ca->dev[IO][n];
         }
     }
 
-    if (pipe(cbpipe_s) == -1 ||
-        pipe(cbpipe_r) == -1 ||
-        pipe(cbmutex_pipe[IN]) == -1 ||
-        pipe(cbmutex_pipe[OUT]) == -1)
-    {
-        fprintf(stderr, "Failed to create pipe: %s.\n", strerror(errno));
-        return false;
-    }
-    if (!writefd(cbmutex_pipe[IN][1], &dummy, 1) ||
-        !writefd(cbmutex_pipe[OUT][1], &dummy, 1))
-    {
-        return false;
-    }
-    
+    bf_sem_init(&glob.cbmutex_pipe[IN]);
+    bf_sem_init(&glob.cbmutex_pipe[OUT]);
+    bf_sem_init(&glob.cbpipe_s);
+    bf_sem_init(&glob.cbpipe_r);
+
+    bf_sem_post(&glob.cbmutex_pipe[IN]);
+    bf_sem_post(&glob.cbmutex_pipe[OUT]);
+
     /* initialise callback io, if any */
     if (bfconf->callback_io) {
-        if ((pid = fork()) == -1) {
-            fprintf(stderr, "Fork failed: %s.\n", strerror(errno));
-            return false;
-        }
-        if (pid != 0) {
+        /*
+          Notes 2025: with the old fork() model the callback_process() is run in the calling process,
+          and this init continues in the child process, this is out-of-necessity hack that was
+          introduced to be able to support JACK callback I/O that (unsurprisingly) doesn't work if
+          the API is called in a forked child, so it must happen in the parent process.
+
+          This hack becomes really awkward for the threaded mode though, so we handle it separately.
+        */
+        if (bf_is_fork_mode()) {
+            pid_t fork_pid = fork();
+            if (fork_pid != 0) {
+                bf_pid_t pid = bf_process_id_to_bf_pid(fork_pid);
+                bf_register_process(pid);
+                ca->callback_pid = bf_getpid();
+                callback_process(n_subdevs, subdevs, bfconf->blocking_io ? NULL : &pid);
+            }
+        } else {
+            struct callback_process_thread_args *cb_args = emalloc(sizeof(*cb_args));
+            FOR_IN_AND_OUT {
+                cb_args->n_subdevs[IO] = n_subdevs[IO];
+                cb_args->subdevs[IO] = subdevs[IO];
+            }
+            cb_args->wpid = bf_getpid();
+            bf_pid_t pid = bf_fork(callback_process_thread, cb_args);
             bf_register_process(pid);
-            ca->callback_pid = getpid();
-            callback_process(n_subdevs, subdevs,
-                             bfconf->blocking_io ? 0 : pid);
         }
-        
-        close(cbpipe_r[1]);
-        close(cbpipe_s[0]);
-        if (!readfd(cbpipe_r[0], &dummy, 1)) {
-            return false;
-        }
-        if (dummy == 0) {
+
+        bf_sem_never_post(&glob.cbpipe_r);
+        bf_sem_never_wait(&glob.cbpipe_s);
+        uint8_t bool_msg;
+        bf_sem_waitmsg(&glob.cbpipe_r, &bool_msg, 1);
+        if (!bool_msg) {
+            // callback_init() in callback_process() failed
             return false;
         }
     }
-    
+
     FOR_IN_AND_OUT {
-	if (pipe(synchpipe[IO]) == -1 ||
-	    pipe(paramspipe_s[IO]) == -1 ||
-	    pipe(paramspipe_r[IO]) == -1)
+	if (pipe(glob.paramspipe_s[IO]) == -1 ||
+	    pipe(glob.paramspipe_r[IO]) == -1)
 	{
 	    fprintf(stderr, "Failed to create pipe: %s.\n", strerror(errno));
 	    return false;
 	}
-	if (!writefd(synchpipe[IO][1], &dummy, 1)) {
-	    return false;
-	}
+        bf_sem_init(&glob.synchpipe[IO]);
+        bf_sem_post(&glob.synchpipe[IO]);
     }
-    
+
     /* initialise inputs */
-    for (n = 0; n < n_subdevs[IN]; n++) {
+    for (int n = 0; n < n_subdevs[IN]; n++) {
         if (bfconf->iomods[subdevs[IN][n].module].iscallback) {
             continue;
         }
 	if (!init_input(&subdevs[IN][n], n)) {
 	    return false;
 	}
-    }    
-    
+    }
+
     /* initialise outputs */
-    for (n = 0; n < n_subdevs[OUT]; n++) {
+    for (int n = 0; n < n_subdevs[OUT]; n++) {
         if (bfconf->iomods[subdevs[OUT][n].module].iscallback) {
             continue;
         }
@@ -864,56 +844,58 @@ dai_init(int _period_size,
 
     /* calculate buffer format, and allocate buffers */
     FOR_IN_AND_OUT {
-	calc_buffer_format(period_size, IO, &ca->buffer_format[IO]);
+	calc_buffer_format(glob.period_size, IO, &ca->buffer_format[IO]);
     }
-    if ((buffer = shmalloc_id(&ca->buffer_id,
-                              2 * dai_buffer_format[IN]->n_bytes +
-                              2 * dai_buffer_format[OUT]->n_bytes)) == NULL)
-    {
-        fprintf(stderr, "Failed to allocate shared memory.\n");
-        return false;
+    uint8_t *buffer;
+    const size_t buffer_size = 2 * dai_buffer_format[IN]->n_bytes + 2 * dai_buffer_format[OUT]->n_bytes;
+    if (bf_is_fork_mode()) {
+        if ((buffer = shmalloc_id(&ca->buffer_id, buffer_size)) == NULL) {
+            fprintf(stderr, "Failed to allocate shared memory.\n");
+            return false;
+        }
+    } else {
+        buffer = emalloc(buffer_size);
     }
-    memset(buffer, 0, 2 * dai_buffer_format[IN]->n_bytes +
-           2 * dai_buffer_format[OUT]->n_bytes);
+    memset(buffer, 0, buffer_size);
     FOR_IN_AND_OUT {
-        iobuffers[IO][0] = buffer;
+        glob.iobuffers[IO][0] = buffer;
         buffer += dai_buffer_format[IO]->n_bytes;
-        iobuffers[IO][1] = buffer;
+        glob.iobuffers[IO][1] = buffer;
         buffer += dai_buffer_format[IO]->n_bytes;
-        buffers[IO][0] = iobuffers[IO][0];
-        buffers[IO][1] = iobuffers[IO][1];
+        buffers[IO][0] = glob.iobuffers[IO][0];
+        buffers[IO][1] = glob.iobuffers[IO][1];
     }
     if (bfconf->callback_io) {
 
         /* some magic callback I/O init values */
-        for (n = 0; n < n_devs[OUT]; n++) {
-            if (dev[OUT][n]->uses_callback) {
-                dev[OUT][n]->buf_left = 0;
-                dev[OUT][n]->cb.frames_left = -1;
-                dev[OUT][n]->cb.iodelay_fill = 2 * period_size /
-                    dev[OUT][n]->block_size_frames - 2;
-            }            
+        for (int n = 0; n < glob.n_devs[OUT]; n++) {
+            struct subdev *sd = glob.dev[OUT][n];
+            if (sd->uses_callback) {
+                sd->buf_left = 0;
+                sd->cb.frames_left = -1;
+                sd->cb.iodelay_fill = 2 * glob.period_size / sd->block_size_frames - 2;
+            }
         }
-        
-        /* let callback I/O attach shared mem buffers */
-        if (!writefd(cbpipe_s[1], &dummy, 1) ||
-            !readfd(cbpipe_r[0], &dummy, 1))
-        {
-            return false;
-        }
-        if (dummy == 0) {
+
+        // let callback_process() attach shared mem buffers (dummy action if not fork mode)
+        uint8_t bool_msg = true;
+        bf_sem_postmsg(&glob.cbpipe_s, &bool_msg, 1);
+        bf_sem_waitmsg(&glob.cbpipe_r, &bool_msg, 1);
+        if (!bool_msg) {
+            // callback_process() failed to init buffers
             return false;
         }
     }
 
     /* decide if to use input poll mode */
-    input_poll_mode = false;
-    all_bad_alignment = true;
-    none_clocked = true;
-    for (n = 0; n < n_subdevs[IN]; n++) {
-        if (dev[IN][n]->uses_clock && !dev[IN][n]->uses_callback) {
+    glob.input_poll_mode = false;
+    bool_t all_bad_alignment = true;
+    bool_t none_clocked = true;
+    for (int n = 0; n < n_subdevs[IN]; n++) {
+        struct subdev *sd = glob.dev[IN][n];
+        if (sd->uses_clock && !sd->uses_callback) {
             none_clocked = false;
-            if (!dev[IN][n]->bad_alignment) {
+            if (!sd->bad_alignment) {
                 all_bad_alignment = false;
             }
         }
@@ -925,7 +907,7 @@ Error: sound input hardware requires poll mode to be activated but current\n\
   configuration does not allow it (allow_poll_mode: false;).\n");
             return false;
         }
-        input_poll_mode = true;
+        glob.input_poll_mode = true;
         pinfo("Input poll mode activated\n");
     }
     return true;
@@ -934,34 +916,26 @@ Error: sound input hardware requires poll mode to be activated but current\n\
 void
 dai_trigger_callback_io(void)
 {
-    char msg;
-
-    msg = CB_MSG_START;
-    if (!writefd(cbpipe_s[1], &msg, 1)) {
-        bf_exit(BF_EXIT_OTHER);
-    }
+    uint8_t msg = CB_MSG_START;
+    bf_sem_postmsg(&glob.cbpipe_s, &msg, 1);
 }
 
 int
 dai_minblocksize(void)
 {
-    int size = 0;
+    int size = INT_MAX;
 
     if (bfconf->blocking_io) {
         FOR_IN_AND_OUT {
-            if (min_block_size[IO] != 0 &&
-                (min_block_size[IO] < size || size == 0))
-            {
-                size = min_block_size[IO];
+            if (glob.min_block_size[IO] != 0 && glob.min_block_size[IO] < size) {
+                size = glob.min_block_size[IO];
             }
         }
     }
     if (bfconf->callback_io) {
         FOR_IN_AND_OUT {
-            if (cb_min_block_size[IO] != 0 &&
-                (cb_min_block_size[IO] < size || size == 0))
-            {
-                size = cb_min_block_size[IO];
+            if (glob.cb_min_block_size[IO] != 0 && glob.cb_min_block_size[IO] < size) {
+                size = glob.cb_min_block_size[IO];
             }
         }
     }
@@ -971,7 +945,7 @@ dai_minblocksize(void)
 bool_t
 dai_input_poll_mode(void)
 {
-    return input_poll_mode;
+    return glob.input_poll_mode;
 }
 
 bool_t
@@ -981,8 +955,8 @@ dai_isinit(void)
 }
 
 void
-dai_toggle_mute(int io,
-		int channel)
+dai_toggle_mute(const int io,
+		const int channel)
 {
     if ((io != IN && io != OUT) || channel < 0 || channel >= BF_MAXCHANNELS) {
 	return;
@@ -991,9 +965,9 @@ dai_toggle_mute(int io,
 }
 
 int
-dai_change_delay(int io,
-		 int channel,
-		 int delay)
+dai_change_delay(const int io,
+		 const int channel,
+		 const int delay)
 {
     if (delay < 0 || channel < 0 || channel >= BF_MAXCHANNELS ||
         (io != IN && io != OUT) ||
@@ -1001,7 +975,7 @@ dai_change_delay(int io,
     {
 	return -1;
     }
-    ca->delay[io][channel] = delay;	
+    ca->delay[io][channel] = delay;
     return 0;
 }
 
@@ -1012,8 +986,6 @@ dai_subdev_command(int io,
                    char **message)
 {
     static char *msgstr = NULL;
-    char dummy;
-    int n, ans;
 
     efree(msgstr);
     msgstr = NULL;
@@ -1024,7 +996,7 @@ dai_subdev_command(int io,
 	}
 	return -1;
     }
-    if (subdev_index < 0 || subdev_index >= n_devs[io]) {
+    if (subdev_index < 0 || subdev_index >= glob.n_devs[io]) {
 	if (message != NULL) {
 	    msgstr = estrdup("Invalid device index");
 	    *message = msgstr;
@@ -1038,79 +1010,70 @@ dai_subdev_command(int io,
 	}
 	return -1;
     }
-    if (!readfd(synchpipe[io][0], &dummy, 1)) {
-	fprintf(stderr, "Failed to read from pipe.\n");
-	bf_exit(BF_EXIT_OTHER);
-    }
-    n = strlen(params) + 1;    
-    if (!writefd(paramspipe_s[io][1], &subdev_index, sizeof(int)) ||
-	!writefd(paramspipe_s[io][1], &n, sizeof(int)) ||
-	!writefd(paramspipe_s[io][1], params, n))
+    bf_sem_wait(&glob.synchpipe[io]);
+
+    int n = strlen(params) + 1;
+    if (!writefd(glob.paramspipe_s[io][1], &subdev_index, sizeof(int)) ||
+	!writefd(glob.paramspipe_s[io][1], &n, sizeof(int)) ||
+	!writefd(glob.paramspipe_s[io][1], params, n))
     {
 	fprintf(stderr, "Failed to write to pipe.\n");
 	bf_exit(BF_EXIT_OTHER);
     }
-    if (!readfd(paramspipe_r[io][0], &ans, sizeof(int))) {
+
+    int ans;
+    if (!readfd(glob.paramspipe_r[io][0], &ans, sizeof(int))) {
 	fprintf(stderr, "Failed to read from pipe.\n");
 	bf_exit(BF_EXIT_OTHER);
     }
-    if (!readfd(paramspipe_r[io][0], &n, sizeof(int))) {
+    if (!readfd(glob.paramspipe_r[io][0], &n, sizeof(int))) {
         fprintf(stderr, "Failed to read from pipe.\n");
         bf_exit(BF_EXIT_OTHER);
     }
     msgstr = emalloc(n);
-    if (!readfd(paramspipe_r[io][0], msgstr, n)) {
+    if (!readfd(glob.paramspipe_r[io][0], msgstr, n)) {
         fprintf(stderr, "Failed to read from pipe.\n");
 	    bf_exit(BF_EXIT_OTHER);
     }
     if (message != NULL) {
         *message = msgstr;
     }
-    if (!writefd(synchpipe[io][1], &dummy, 1)) {
-	fprintf(stderr, "Failed to write to pipe.\n");
-	bf_exit(BF_EXIT_OTHER);
-    }
+    bf_sem_post(&glob.synchpipe[io]);
     return ans;
 }
 
 void
 dai_die(void)
 {
-    bool_t iscallback;
-    int n;
-    
     if (ca == NULL) {
 	return;
     }
 
-    iscallback = (getpid() == ca->callback_pid);
-    
+    const bool_t iscallback = bf_pid_equal(bf_getpid(), ca->callback_pid);
+
     if (iscallback) {
-        for (n = 0; n < bfconf->n_iomods; n++) {
-            if (bfconf->iomods[n].iscallback) {                
+        for (int n = 0; n < bfconf->n_iomods; n++) {
+            if (bfconf->iomods[n].iscallback) {
                 bfconf->iomods[n].synch_stop();
             }
         }
         return;
-    } else if (ca->blocking_stopped) {
+    }
+    if (ca->blocking_stopped) {
         return;
     }
-    
-    if (getpid() == ca->pid[OUT]) {
-        for (n = 0; n < bfconf->n_iomods; n++) {
-            if (!bfconf->iomods[n].iscallback &&
-                bfconf->iomods[n].synch_stop != NULL)
-            {
+
+    if (bf_pid_equal(bf_getpid(), ca->pid[OUT])) {
+        for (int n = 0; n < bfconf->n_iomods; n++) {
+            if (!bfconf->iomods[n].iscallback && bfconf->iomods[n].synch_stop != NULL) {
                 bfconf->iomods[n].synch_stop();
             }
         }
     }
     FOR_IN_AND_OUT {
-	if (getpid() == ca->pid[IO]) {
-	    for (n = 0; n < bfconf->n_iomods; n++) {
-                if (!bfconf->iomods[n].iscallback &&
-                    bfconf->iomods[n].stop != NULL)
-                {
+	if (bf_pid_equal(bf_getpid(), ca->pid[IO])) {
+	    for (int n = 0; n < bfconf->n_iomods; n++) {
+                if (!bfconf->iomods[n].iscallback && bfconf->iomods[n].stop != NULL) {
                     bfconf->iomods[n].stop(IO);
                 }
 	    }
@@ -1123,88 +1086,86 @@ dai_input(volatile struct debug_input dbg[],
           int dbg_len,
           volatile int *dbg_loops)
 {
-    static bool_t isfirst = true, startmeasure = true;
-    static int buf_index = 0, frames = 0, curbuf = 0;
-    static struct timeval starttv;
+    static struct {
+        bool_t isfirst;
+        bool_t startmeasure;
+        int buf_index;
+        int frames;
+        int curbuf;
+        struct timeval starttv;
+    } st = {
+        .isfirst = true,
+        .startmeasure = true,
+        .buf_index = 0,
+        .frames = 0,
+        .curbuf = 0,
+        .starttv = {0}
+    };
 
-    int fdn, fdmax, n, i, k, fd, devsleft, frames_left = 0, dbg_pos = 0;
-    struct timeval tv, zerotv, *ptv;
-    struct subdev *sd = NULL;
-    double measured_rate;
-    fd_set rfds, readfds;
-    int64_t usec, usec2;
-    struct timespec ts;
-    bool_t firstloop;
-    uint8_t *buf;
-    int minleft;
-
-    buf = (uint8_t *)iobuffers[IN][curbuf];
-    curbuf = !curbuf;
-    
+    int dbg_pos = 0;
     *dbg_loops = 0;
-    zerotv.tv_sec = 0;
-    zerotv.tv_usec = 0;
-    firstloop = true;
-    minleft = period_size;
-    if ((ca->frames_left != -1 &&
-         buf_index == ca->lastbuf_index + 1) ||
-        (ca->cb_frames_left != -1 &&
-         buf_index == ca->cb_lastbuf_index + 1))
+
+    if ((ca->frames_left != -1 && st.buf_index == ca->lastbuf_index + 1) ||
+        (ca->cb_frames_left != -1 && st.buf_index == ca->cb_lastbuf_index + 1))
     {
-	for (n = 0; n < bfconf->n_iomods; n++) {
+	for (int n = 0; n < bfconf->n_iomods; n++) {
             if (bfconf->iomods[n].stop != NULL) {
                 bfconf->iomods[n].stop(IN);
             }
 	}
-	/* There is no more data to read, just sleep and let the output process
-	   end all processes. */
-	while (true) sleep(100000);
+	/* There is no more data to read, just sleep and let the output process end all processes. */
+	while (true) sleep(1000);
     }
-    devsleft = n_fd_devs[IN];
-    memcpy(&rfds, &dev_fds[IN], sizeof(fd_set));
 
-    if (isfirst) {
-	ca->pid[IN] = getpid();
-        
+    if (st.isfirst) {
+	ca->pid[IN] = bf_getpid();
+
         timestamp(&dbg[0].init.ts_start_call);
         dai_trigger_callback_io();
-	for (n = 0; n < bfconf->n_iomods; n++) {
+	for (int n = 0; n < bfconf->n_iomods; n++) {
             if (bfconf->iomods[n].iscallback) {
                 continue;
             }
-	    if ((bfconf->iomods[n].start != NULL &&
-                 bfconf->iomods[n].start(IN) != 0) ||
-                (bfconf->iomods[n].synch_start != NULL &&
-                 bfconf->iomods[n].synch_start() != 0))
+	    if ((bfconf->iomods[n].start != NULL && bfconf->iomods[n].start(IN) != 0) ||
+                (bfconf->iomods[n].synch_start != NULL && bfconf->iomods[n].synch_start() != 0))
             {
 		fprintf(stderr, "Failed to start I/O module, aborting.\n");
 		bf_exit(BF_EXIT_OTHER);
 	    }
 	}
         timestamp(&dbg[0].init.ts_start_ret);
-        
-    }
-    while (devsleft != 0) {
-	memcpy(&readfds, &rfds, sizeof(fd_set));
-	FD_SET(paramspipe_s[IN][0], &readfds);
 
-        fdmax = (dev_fdn[IN] > paramspipe_s[IN][0]) ? dev_fdn[IN] :
-            paramspipe_s[IN][0];
+    }
+
+    uint8_t *buf = (uint8_t *)glob.iobuffers[IN][st.curbuf];
+    st.curbuf = !st.curbuf;
+
+    int devsleft = glob.n_fd_devs[IN];
+    fd_set rfds = glob.dev_fds[IN];
+    int minleft = glob.period_size;
+    bool_t firstloop = true;
+    while (devsleft != 0) {
+        fd_set readfds = rfds;
+	FD_SET(glob.paramspipe_s[IN][0], &readfds);
+
+        const int fdmax = (glob.dev_fdn[IN] > glob.paramspipe_s[IN][0]) ? glob.dev_fdn[IN] : glob.paramspipe_s[IN][0];
 
         dbg[dbg_pos].select.fdmax = fdmax;
         timestamp(&dbg[dbg_pos].select.ts_call);
-        
-        if (input_poll_mode) {
+
+        struct timeval *ptv, zerotv_;
+        if (glob.input_poll_mode) {
             if (!firstloop) {
-                usec = (int64_t)minleft * 1000000 / (int64_t)sample_rate;
-                if (min_block_size[IN] > 0) {
-                    usec2 = (int64_t)min_block_size[IN] * 1000000
-                        / (int64_t)sample_rate;
+                int64_t usec = (int64_t)minleft * 1000000 / (int64_t)glob.sample_rate;
+                if (glob.min_block_size[IN] > 0) {
+                    int64_t usec2 = (int64_t)glob.min_block_size[IN] * 1000000 / (int64_t)glob.sample_rate;
                     if (usec2 < usec) {
                         usec = usec2;
                     }
                 }
-                /* nanosleep sleeps precise in maximum 2 ms */
+                /* nanosleep sleeps precise in maximum 2 ms (Note 2025: statement applies
+                   to 2001 linux kernels, haven't checked current status) */
+                struct timespec ts;
                 if (usec > 40000) {
                     ts.tv_sec = 0;
                     ts.tv_nsec = usec * 1000;
@@ -1223,41 +1184,41 @@ dai_input(volatile struct debug_input dbg[],
                     nanosleep(&ts, NULL);
                 }
             }
-            ptv = &zerotv;
+            ptv = &zerotv_;
+            zerotv_ = (struct timeval){0};
         } else {
             ptv = NULL;
         }
 
-        while ((fdn = select(fdmax + 1, &readfds, NULL, NULL, ptv)) == -1 &&
-               errno == EINTR);
-        
+        int fdn;
+        while ((fdn = select(fdmax + 1, &readfds, NULL, NULL, ptv)) == -1 && errno == EINTR);
+
         timestamp(&dbg[dbg_pos].select.ts_ret);
         dbg[dbg_pos].select.retval = fdn;
-    
+
 	if (fdn == -1) {
 	    fprintf(stderr, "Select failed: %s.\n", strerror(errno));
 	    bf_exit(BF_EXIT_OTHER);
 	}
 
-        for (n = 0; n < n_devs[IN]; n++) {
-            if (dev[IN][n]->uses_clock && !dev[IN][n]->uses_callback &&
-                !FD_ISSET(dev[IN][n]->fd, &readfds))
+        for (int n = 0; n < glob.n_devs[IN]; n++) {
+            struct subdev *sd = glob.dev[IN][n];
+            if (sd->uses_clock && !sd->uses_callback && !FD_ISSET(sd->fd, &readfds) &&
+                (glob.input_poll_mode || sd->bad_alignment))
             {
-                if (input_poll_mode || dev[IN][n]->bad_alignment) {
-                    FD_SET(dev[IN][n]->fd, &readfds);
-                    fdn++;
-                }
+                FD_SET(sd->fd, &readfds);
+                fdn++;
             }
         }
-	
-	fd = -1;
+
+	int fd = -1;
 	while (fdn--) {
             for (fd++; !FD_ISSET(fd, &readfds) && fd <= fdmax; fd++);
-	    if (fd == paramspipe_s[IN][0]) {
+	    if (fd == glob.paramspipe_s[IN][0]) {
 		handle_params(IN);
 		continue;
 	    }
-	    sd = fd2dev[IN][fd];
+	    struct subdev *sd = glob.fd2dev[IN][fd];
 
             dbg[dbg_pos].read.fd = fd;
             dbg[dbg_pos].read.buf = buf + sd->buf_offset;
@@ -1265,18 +1226,17 @@ dai_input(volatile struct debug_input dbg[],
             dbg[dbg_pos].read.count = sd->buf_left;
             timestamp(&dbg[dbg_pos].read.ts_call);
 
-	    n = sd->module->read(fd, buf + sd->buf_offset, sd->buf_size -
-				 sd->buf_left, sd->buf_left);
+	    const int byte_count = sd->module->read(fd, buf + sd->buf_offset, sd->buf_size - sd->buf_left, sd->buf_left);
 
             timestamp(&dbg[dbg_pos].read.ts_ret);
-            dbg[dbg_pos].read.retval = n;
+            dbg[dbg_pos].read.retval = byte_count;
             if (++dbg_pos == dbg_len) {
                 dbg_pos = 0;
             }
             (*dbg_loops)++;
-                
-	    switch (n) {
-	    case -1:
+
+	    switch (byte_count) {
+	    case -1: {
 		switch (errno) {
 		case EINTR:
 		case EAGAIN:
@@ -1284,8 +1244,7 @@ dai_input(volatile struct debug_input dbg[],
 		    break;
 		case EIO:
 		    /* invalid input signal */
-		    fprintf(stderr, "I/O module failed to read due to invalid "
-			    "input signal, aborting.\n");
+		    fprintf(stderr, "I/O module failed to read due to invalid input signal, aborting.\n");
 		    bf_exit(BF_EXIT_INVALID_INPUT);
 		    break;
 		case EPIPE:
@@ -1295,9 +1254,8 @@ dai_input(volatile struct debug_input dbg[],
                        linked the devices, broken pipe on output will be
                        noted on the input as well, and it is more likely that
                        it is an underflow on the output than an overflow on
-                       the input */                    
-		    fprintf(stderr, "I/O module failed to read (probably) due "
-                            "to buffer underflow on output, aborting.\n");
+                       the input */
+		    fprintf(stderr, "I/O module failed to read (probably) due to buffer underflow on output, aborting.\n");
 		    bf_exit(BF_EXIT_BUFFER_UNDERFLOW);
 		    break;
 		default:
@@ -1307,207 +1265,200 @@ dai_input(volatile struct debug_input dbg[],
 		    break;
 		}
 		break;
-		
-	    case 0:
+            }
+	    case 0: {
 		if (sd->isinterleaved) {
-		    memset(buf + sd->buf_offset + sd->buf_size - sd->buf_left,
-			   0, sd->buf_left);
+		    memset(buf + sd->buf_offset + sd->buf_size - sd->buf_left, 0, sd->buf_left);
 		} else {
-		    i = sd->buf_size / sd->channels.open_channels;
-		    k = sd->buf_left / sd->channels.open_channels;
-		    for (n = 1; n <= sd->channels.open_channels; n++) {
+		    const int i = sd->buf_size / sd->channels.open_channels;
+		    const int k = sd->buf_left / sd->channels.open_channels;
+		    for (int n = 1; n <= sd->channels.open_channels; n++) {
 			memset(buf + sd->buf_offset + n * i - k, 0, k);
 		    }
 		}
 		devsleft--;
 		FD_CLR(fd, &rfds);
-		
-		frames_left = (sd->buf_size - sd->buf_left) /
-		    sd->channels.sf.bytes / sd->channels.open_channels;
+
+		const int frames_left = (sd->buf_size - sd->buf_left) / sd->channels.sf.bytes / sd->channels.open_channels;
 		if (ca->frames_left == -1 || frames_left < ca->frames_left) {
 		    ca->frames_left = frames_left;
 		}
-		ca->lastbuf_index = buf_index;
+		ca->lastbuf_index = st.buf_index;
 		break;
-		
-	    default:
-		sd->buf_left -= n;
-		if (monitor_rate_fd == fd) {
-		    if (startmeasure) {
+            }
+	    default: {
+		sd->buf_left -= byte_count;
+		if (glob.monitor_rate_fd == fd) {
+		    if (st.startmeasure) {
                         if (sd->buf_left == 0) {
-                            startmeasure = false;
-                            gettimeofday(&starttv, NULL);
+                            st.startmeasure = false;
+                            gettimeofday(&st.starttv, NULL);
                         }
 		    } else {
-			frames += n / (sd->buf_size / period_size);
-                        if (frames >= sample_rate && sd->buf_left == 0) {
+			st.frames += byte_count / (sd->buf_size / glob.period_size);
+                        if (st.frames >= glob.sample_rate && sd->buf_left == 0) {
+                            struct timeval tv;
                             gettimeofday(&tv, NULL);
-                            timersub(&tv, &starttv, &tv);
-                            measured_rate = 1000.0 * (double)frames /
-                                (double)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+                            timersub(&tv, &st.starttv, &tv);
+                            double measured_rate = 1000.0 * (double)st.frames / (double)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
                             if (bfconf->debug) {
-                                fprintf(stderr, "measured rate: %.3f kHz "
-                                        "(%d frames / %ld usecs)\n",
-                                        measured_rate / 1000.0, frames,
-                                        tv.tv_sec * 1000000 + tv.tv_usec);
+                                fprintf(stderr, "measured rate: %.3f kHz (%d frames / %ld usecs)\n",
+                                        measured_rate / 1000.0, st.frames, tv.tv_sec * 1000000 + tv.tv_usec);
                             }
-                            if (measured_rate < (double)sample_rate * 0.98 ||
-                                measured_rate > (double)sample_rate / 0.98)
-                            {                            
-                                fprintf(stderr, "Configured sample rate is "
-                                        "%.1f kHz, but measured is %.1f kHz, "
-                                        "aborting.\n",
-                                        (double)sample_rate / 1000.0,
-                                        measured_rate / 1000.0);
+                            if (measured_rate < (double)glob.sample_rate * 0.98 ||
+                                measured_rate > (double)glob.sample_rate / 0.98)
+                            {
+                                fprintf(stderr, "Configured sample rate is %.1f kHz, but measured is %.1f kHz, aborting.\n",
+                                        (double)glob.sample_rate / 1000.0, measured_rate / 1000.0);
                                 bf_exit(BF_EXIT_INVALID_INPUT);
                             }
-                            startmeasure = true;
-                            frames = 0;
+                            st.startmeasure = true;
+                            st.frames = 0;
                         }
 		    }
 		}
-                n = sd->buf_left / (sd->buf_size / period_size);
-                if (sd->uses_clock && (n < minleft || minleft == -1)) {
-                    minleft = n;
-                }                
+                const int frames_left = sd->buf_left / (sd->buf_size / glob.period_size);
+                if (sd->uses_clock && (frames_left < minleft || minleft == -1)) {
+                    minleft = frames_left;
+                }
 		if (sd->buf_left == 0) {
 		    sd->buf_left = sd->buf_size;
 		    devsleft--;
-		    FD_CLR(fd, &rfds);		
+		    FD_CLR(fd, &rfds);
 		}
 		break;
+            }
 	    }
 	}
         firstloop = false;
     }
-    
-    for (n = 0; n < n_devs[IN]; n++) {
-        sd = dev[IN][n];
+
+    for (int n = 0; n < glob.n_devs[IN]; n++) {
+        struct subdev *sd = glob.dev[IN][n];
         if (!sd->uses_callback) {
             do_mute(sd, IN, sd->buf_size, (void *)(buf + sd->buf_offset), 0);
             update_delay(sd, IN, buf);
         }
     }
 
-    isfirst = false;
-
-    buf_index++;
-    
+    st.isfirst = false;
+    st.buf_index++;
 }
 
 void
 dai_output(bool_t iodelay_fill,
-           int synch_fd,
+           bf_sem_t *synch_fd,
            volatile struct debug_output dbg[],
            int dbg_len,
            volatile int *dbg_loops)
 {
-    static bool_t isfirst = true;
-    static bool_t islast = false;
-    static int buf_index = 0;
-    static int curbuf = 0;
-    static fd_set readfds;
-    
-    int devsleft, fdn, fd, n, frames_left;    
-    uint8_t *buf, dummydata[1] = { '\0' };
-    fd_set wfds, writefds;
-    struct subdev *sd;
-    int dbg_pos = 0;
+    static struct {
+        bool_t isfirst;
+        bool_t islast;
+        int buf_index;
+        int curbuf;
+        fd_set readfds;
+    } st = {
+        .isfirst = true,
+        .islast = false,
+        .buf_index = 0,
+        .curbuf = 0,
+        .readfds = {}
+    };
 
-    buf = (uint8_t *)iobuffers[OUT][curbuf];
-    curbuf = !curbuf;
-    
+    int dbg_pos = 0;
     *dbg_loops = 0;
 
-    if ((ca->frames_left != -1 && buf_index == ca->lastbuf_index) ||
-        (ca->cb_frames_left != -1 && buf_index == ca->cb_lastbuf_index))
+    if ((ca->frames_left != -1 && st.buf_index == ca->lastbuf_index) ||
+        (ca->cb_frames_left != -1 && st.buf_index == ca->cb_lastbuf_index))
     {
-	frames_left = ca->frames_left;
-        n = ca->cb_frames_left;
-        if (frames_left == -1 || (n != -1 && n < frames_left)) {
-            frames_left = n;
+	int frames_left = ca->frames_left;
+        if (frames_left == -1 || ( ca->cb_frames_left != -1 &&  ca->cb_frames_left < frames_left)) {
+            frames_left =  ca->cb_frames_left;
         }
-	for (n = 0; n < n_devs[OUT]; n++) {
-            if (!dev[OUT][n]->uses_callback) {
-                dev[OUT][n]->buf_left = dev[OUT][n]->buf_size =
-                    frames_left * dev[OUT][n]->channels.sf.bytes *
-                    dev[OUT][n]->channels.open_channels;
+	for (int n = 0; n < glob.n_devs[OUT]; n++) {
+            struct subdev *sd = glob.dev[OUT][n];
+            if (!sd->uses_callback) {
+                sd->buf_left = sd->buf_size = frames_left * sd->channels.sf.bytes * sd->channels.open_channels;
             }
 	}
-        islast = true;
+        st.islast = true;
     }
-    if (isfirst) {
-	FD_ZERO(&readfds);
+    if (st.isfirst) {
+	FD_ZERO(&st.readfds); // in theory FD_ZERO() can be different from just = {}
     }
 
-    for (n = 0; n < n_devs[OUT]; n++) {
-        if (dev[OUT][n]->uses_callback) {
+    uint8_t *buf = (uint8_t *)glob.iobuffers[OUT][st.curbuf];
+    st.curbuf = !st.curbuf;
+
+    for (int n = 0; n < glob.n_devs[OUT]; n++) {
+        struct subdev *sd = glob.dev[OUT][n];
+        if (sd->uses_callback) {
             continue;
         }
-        update_delay(dev[OUT][n], OUT, buf);
+        update_delay(sd, OUT, buf);
     }
-    
+
+    int devsleft;
+    fd_set wfds;
     if (iodelay_fill) {
-        memcpy(&wfds, &clocked_wfds, sizeof(fd_set));
-        devsleft = n_clocked_devs;
+        wfds = glob.clocked_wfds;
+        devsleft = glob.n_clocked_devs;
     } else {
-        devsleft = n_fd_devs[OUT];
-        memcpy(&wfds, &dev_fds[OUT], sizeof(fd_set));
+        wfds = glob.dev_fds[OUT];
+        devsleft = glob.n_fd_devs[OUT];
     }
 
     while (devsleft != 0) {
-	memcpy(&writefds, &wfds, sizeof(fd_set));
-	FD_SET(paramspipe_s[OUT][0], &readfds);
-        fdn = (dev_fdn[OUT] > paramspipe_s[OUT][0]) ? dev_fdn[OUT] :
-            paramspipe_s[OUT][0];
-        
+        fd_set writefds = wfds;
+	FD_SET(glob.paramspipe_s[OUT][0], &st.readfds);
+        int fdn = (glob.dev_fdn[OUT] > glob.paramspipe_s[OUT][0]) ? glob.dev_fdn[OUT] : glob.paramspipe_s[OUT][0];
+
         dbg[dbg_pos].select.fdmax = fdn + 1;
         timestamp(&dbg[dbg_pos].select.ts_call);
-        
-	while ((fdn = select(fdn + 1, &readfds, &writefds, NULL, NULL)) == -1 &&
-               errno == EINTR);
-        
+
+	while ((fdn = select(fdn + 1, &st.readfds, &writefds, NULL, NULL)) == -1 && errno == EINTR);
+
         timestamp(&dbg[dbg_pos].select.ts_ret);
         dbg[dbg_pos].select.retval = fdn;
-        
+
 	if (fdn == -1) {
 	    fprintf(stderr, "Select failed: %s.\n", strerror(errno));
 	    bf_exit(BF_EXIT_OTHER);
 	}
-        if (FD_ISSET(paramspipe_s[OUT][0], &readfds)) {
+        if (FD_ISSET(glob.paramspipe_s[OUT][0], &st.readfds)) {
             handle_params(OUT);
             fdn--;
         }
-        
-	fd = -1;
+
+	int fd = -1;
 	while (fdn--) {
-            for (fd++; !FD_ISSET(fd, &writefds) && fd <= dev_fdn[OUT]; fd++);
-	    sd = fd2dev[OUT][fd];
+            for (fd++; !FD_ISSET(fd, &writefds) && fd <= glob.dev_fdn[OUT]; fd++);
+	    struct subdev *sd = glob.fd2dev[OUT][fd];
+            int write_size;
 	    if (sd->block_size > 0 && sd->buf_left > sd->block_size) {
-		n = sd->block_size + sd->buf_left % sd->block_size;
+		write_size = sd->block_size + sd->buf_left % sd->block_size;
 	    } else {
-		n = sd->buf_left;
+		write_size = sd->buf_left;
 	    }
-	    do_mute(sd, OUT, n, (void *)(buf + sd->buf_offset),
-		    sd->buf_size - sd->buf_left);
+	    do_mute(sd, OUT, write_size, (void *)(buf + sd->buf_offset), sd->buf_size - sd->buf_left);
 
             dbg[dbg_pos].write.fd = fd;
             dbg[dbg_pos].write.buf = buf + sd->buf_offset;
             dbg[dbg_pos].write.offset = sd->buf_size - sd->buf_left;
-            dbg[dbg_pos].write.count = n;
+            dbg[dbg_pos].write.count = write_size;
             timestamp(&dbg[dbg_pos].write.ts_call);
-            
-	    n = sd->module->write(fd, buf + sd->buf_offset,
-				  sd->buf_size - sd->buf_left, n);
+
+	    int byte_count = sd->module->write(fd, buf + sd->buf_offset, sd->buf_size - sd->buf_left, write_size);
 
             timestamp(&dbg[dbg_pos].write.ts_ret);
-            dbg[dbg_pos].write.retval = n;
+            dbg[dbg_pos].write.retval = byte_count;
             if (++dbg_pos == dbg_len) {
                 dbg_pos = 0;
             }
             (*dbg_loops)++;
-    
-	    switch (n) {
+
+	    switch (byte_count) {
 	    case -1:
                 switch (errno) {
                 case EINTR:
@@ -1516,8 +1467,7 @@ dai_output(bool_t iodelay_fill,
                     break;
                 case EPIPE:
                     /* buffer underflow */
-                    fprintf(stderr, "I/O module failed to write due to buffer "
-                            "underflow, aborting.\n");
+                    fprintf(stderr, "I/O module failed to write due to buffer underflow, aborting.\n");
                     bf_exit(BF_EXIT_BUFFER_UNDERFLOW);
                     break;
                 default:
@@ -1527,9 +1477,9 @@ dai_output(bool_t iodelay_fill,
                     break;
                 }
 		break;
-		
+
 	    default:
-		sd->buf_left -= n;
+		sd->buf_left -= byte_count;
 		break;
 	    }
 	    if (sd->buf_left == 0) {
@@ -1538,41 +1488,37 @@ dai_output(bool_t iodelay_fill,
 		FD_CLR(fd, &wfds);
 	    }
 	}
-        if (synch_fd != -1) {
+        if (synch_fd != NULL) {
             timestamp(&dbg[0].init.ts_synchfd_call);
-            if (!writefd(synch_fd, dummydata, 1)) {
-                bf_exit(BF_EXIT_OTHER);
-            }
+            bf_sem_post(synch_fd);
             sched_yield(); /* let input process start now */
             timestamp(&dbg[0].init.ts_synchfd_ret);
-            synch_fd = -1;
+            synch_fd = NULL;
         }
-	if (!iodelay_fill && isfirst) {
-	    isfirst = false;
-            
+	if (!iodelay_fill && st.isfirst) {
+	    st.isfirst = false;
+
             timestamp(&dbg[0].init.ts_start_call);
-	    for (n = 0; n < bfconf->n_iomods; n++) {
+	    for (int n = 0; n < bfconf->n_iomods; n++) {
                 if (bfconf->iomods[n].iscallback) {
                     continue;
                 }
-		if (bfconf->iomods[n].start != NULL &&
-                    bfconf->iomods[n].start(OUT) != 0)
-                {
+		if (bfconf->iomods[n].start != NULL && bfconf->iomods[n].start(OUT) != 0) {
 		    fprintf(stderr, "I/O module failed to start, aborting.\n");
 		    bf_exit(BF_EXIT_OTHER);
 		}
 	    }
             timestamp(&dbg[0].init.ts_start_ret);
-	    ca->pid[OUT] = getpid();
+	    ca->pid[OUT] = bf_getpid();
 	}
     }
-    
+
     if (iodelay_fill) {
         return;
     }
-    
-    if (islast) {
-	for (n = 0; n < bfconf->n_iomods; n++) {
+
+    if (st.islast) {
+	for (int n = 0; n < bfconf->n_iomods; n++) {
             if (bfconf->iomods[n].iscallback) {
                 /* callback I/O is stopped elsewhere */
                 continue;
@@ -1585,8 +1531,8 @@ dai_output(bool_t iodelay_fill,
             }
 	}
 	ca->blocking_stopped = true;
-        for (n = 0; n < n_devs[OUT]; n++) {
-            sd = dev[OUT][n];
+        for (int n = 0; n < glob.n_devs[OUT]; n++) {
+            struct subdev *sd = glob.dev[OUT][n];
             if (!sd->uses_callback) {
                 sd->finished = true;
             }
@@ -1598,7 +1544,7 @@ dai_output(bool_t iodelay_fill,
         }
     }
 
-    buf_index++;
+    st.buf_index++;
 }
 
 static void
@@ -1606,24 +1552,18 @@ process_callback_input(struct subdev *sd,
                        void *cbbufs[],
                        int frame_count)
 {
-    struct buffer_format *bf;
-    uint8_t *buf, *copybuf;
-    int n, cnt, count;
+    uint8_t *buf = (uint8_t *)glob.iobuffers[IN][sd->cb.curbuf];
 
-    buf = (uint8_t *)iobuffers[IN][sd->cb.curbuf];
-
-    count = frame_count * sd->channels.used_channels * sd->channels.sf.bytes;
+    const int count = frame_count * sd->channels.used_channels * sd->channels.sf.bytes;
     if (sd->isinterleaved) {
-        memcpy(buf + sd->buf_offset + sd->buf_size - sd->buf_left,
-               cbbufs[0], count);
+        memcpy(buf + sd->buf_offset + sd->buf_size - sd->buf_left, cbbufs[0], count);
     } else {
-        bf = &dai_buffer_format[IN]->bf[sd->channels.channel_name[0]];
-        cnt = count / sd->channels.used_channels;
-        copybuf = buf + sd->buf_offset +
-            (sd->buf_size - sd->buf_left) / sd->channels.used_channels;
-        for (n = 0; n < sd->channels.used_channels; n++) {
+        const struct buffer_format *bf = &dai_buffer_format[IN]->bf[sd->channels.channel_name[0]];
+        const int cnt = count / sd->channels.used_channels;
+        uint8_t *copybuf = buf + sd->buf_offset + (sd->buf_size - sd->buf_left) / sd->channels.used_channels;
+        for (int n = 0; n < sd->channels.used_channels; n++) {
             memcpy(copybuf, cbbufs[n], cnt);
-            copybuf += period_size * bf->sf.sbytes;
+            copybuf += glob.period_size * bf->sf.sbytes;
         }
     }
     sd->buf_left -= count;
@@ -1640,20 +1580,16 @@ process_callback_output(struct subdev *sd,
                         int frame_count,
                         bool_t iodelay_fill)
 {
-    struct buffer_format *bf;
-    uint8_t *buf, *copybuf;
-    int n, cnt, count;
+    uint8_t *buf = (uint8_t *)glob.iobuffers[OUT][sd->cb.curbuf];
 
-    buf = (uint8_t *)iobuffers[OUT][sd->cb.curbuf];
+    const int count = frame_count * sd->channels.used_channels * sd->channels.sf.bytes;
 
-    count = frame_count * sd->channels.used_channels * sd->channels.sf.bytes;
-    
     if (iodelay_fill) {
         if (sd->isinterleaved) {
             memset(cbbufs[0], 0, count);
         } else {
-            cnt = count / sd->channels.used_channels;
-            for (n = 0; n < sd->channels.used_channels; n++) {
+            const int cnt = count / sd->channels.used_channels;
+            for (int n = 0; n < sd->channels.used_channels; n++) {
                 memset(cbbufs[n], 0, cnt);
             }
         }
@@ -1663,19 +1599,16 @@ process_callback_output(struct subdev *sd,
     if (sd->buf_left == sd->buf_size) {
         update_delay(sd, OUT, buf);
     }
-    do_mute(sd, OUT, count, (void *)(buf + sd->buf_offset),
-            sd->buf_size - sd->buf_left);
+    do_mute(sd, OUT, count, (void *)(buf + sd->buf_offset), sd->buf_size - sd->buf_left);
     if (sd->isinterleaved) {
-        memcpy(cbbufs[0], buf + sd->buf_offset +
-               sd->buf_size - sd->buf_left, count);
+        memcpy(cbbufs[0], buf + sd->buf_offset + sd->buf_size - sd->buf_left, count);
     } else {
-        bf = &dai_buffer_format[OUT]->bf[sd->channels.channel_name[0]];
-        cnt = count / sd->channels.used_channels;
-        copybuf = buf + sd->buf_offset +
-            (sd->buf_size - sd->buf_left) / sd->channels.used_channels;
-        for (n = 0; n < sd->channels.used_channels; n++) {
+        const struct buffer_format *bf = &dai_buffer_format[OUT]->bf[sd->channels.channel_name[0]];
+        const int cnt = count / sd->channels.used_channels;
+        const uint8_t *copybuf = buf + sd->buf_offset + (sd->buf_size - sd->buf_left) / sd->channels.used_channels;
+        for (int n = 0; n < sd->channels.used_channels; n++) {
             memcpy(cbbufs[n], copybuf, cnt);
-            copybuf += period_size * bf->sf.sbytes;
+            copybuf += glob.period_size * bf->sf.sbytes;
         }
     }
 
@@ -1688,30 +1621,19 @@ process_callback_output(struct subdev *sd,
 static void
 trigger_callback_ready(int io)
 {
-    char dummy[BF_MAXCHANNELS];
-    
-    if (callback_ready_waiting[io] > 0) {
-        memset(dummy, 0, sizeof(dummy));
-        if (!writefd(cbreadywait_pipe[io][1], dummy,
-                     callback_ready_waiting[io]))
-        {
-            bf_exit(BF_EXIT_OTHER);
-        }
-        callback_ready_waiting[io] = 0;
+    if (glob.callback_ready_waiting[io] > 0) {
+        bf_sem_postmany(&glob.cbreadywait_pipe[io], glob.callback_ready_waiting[io]);
+        glob.callback_ready_waiting[io] = 0;
     }
-    cbmutex(io, false);    
+    cbmutex(io, false);
 }
 
 static void
 wait_callback_ready(int io)
 {
-    char dummy;
-    
-    callback_ready_waiting[io]++;
+    glob.callback_ready_waiting[io]++;
     cbmutex(io, false);
-    if (!readfd(cbreadywait_pipe[io][0], &dummy, 1)) {
-        bf_exit(BF_EXIT_OTHER);
-    }
+    bf_sem_wait(&glob.cbreadywait_pipe[io]);
 }
 
 static int
@@ -1721,10 +1643,6 @@ process_callback(void **states[2],
                  int frame_count,
                  int event)
 {
-    bool_t finished, unlock_output;
-    int n, i, buf_index;
-    struct subdev *sd;
-
     switch (event) {
     case BF_CALLBACK_EVENT_LAST_INPUT:
         if (ca->cb_frames_left == -1 || frame_count < ca->cb_frames_left) {
@@ -1733,8 +1651,8 @@ process_callback(void **states[2],
         ca->cb_lastbuf_index = ca->cb_buf_index[IN];
         return 0;
     case BF_CALLBACK_EVENT_FINISHED:
-        for (n = 0; n < state_count[OUT]; n++) {
-            sd = (struct subdev *)states[OUT][n];
+        for (int n = 0; n < state_count[OUT]; n++) {
+            struct subdev *sd = (struct subdev *)states[OUT][n];
             sd->finished = true;
         }
         cbmutex(IN, true);
@@ -1757,24 +1675,20 @@ process_callback(void **states[2],
         break;
     }
 
-    if (states == NULL || state_count == NULL || buffers == NULL ||
-        frame_count <= 0)
-    {
-        fprintf(stderr, "Invalid parameters: states %p; state_count %p; "
-                "buffers: %p; frame_count: %d\n", states, state_count, buffers,
-                frame_count);
+    if (states == NULL || state_count == NULL || buffers == NULL || frame_count <= 0) {
+        fprintf(stderr, "Invalid parameters: states %p; state_count %p; buffers: %p; frame_count: %d\n",
+                states, state_count, buffers, frame_count);
         bf_exit(BF_EXIT_OTHER);
     }
 
     if (state_count[IN] > 0) {
 
         cbmutex(IN, true);
-        
-        for (n = 0, i = 0; n < state_count[IN]; n++) {
-            sd = (struct subdev *)states[IN][n];
+
+        for (int n = 0, i = 0; n < state_count[IN]; n++) {
+            struct subdev *sd = (struct subdev *)states[IN][n];
             if (frame_count != sd->block_size_frames) {
-                fprintf(stderr, "Error: unexpected callback I/O block "
-                        "alignment (%d != %d)\n",
+                fprintf(stderr, "Error: unexpected callback I/O block alignment (got %d, expected %d)\n",
                         frame_count, sd->block_size_frames);
                 bf_exit(BF_EXIT_OTHER);
             }
@@ -1785,20 +1699,20 @@ process_callback(void **states[2],
                 i += sd->channels.used_channels;
             }
         }
-        
-        sd = (struct subdev *)states[IN][0]; 
+
+        struct subdev *sd = (struct subdev *)states[IN][0];
         if (sd->buf_left == 0) {
-            finished = true;
-            for (n = 0; n < n_devs[IN]; n++) {
-                sd = dev[IN][n];
+            bool_t finished = true;
+            for (int n = 0; n < glob.n_devs[IN]; n++) {
+                sd = glob.dev[IN][n];
                 if (sd->uses_callback && sd->buf_left != 0) {
                     finished = false;
                     break;
                 }
             }
             if (finished) {
-                for (n = 0; n < n_devs[IN]; n++) {
-                    sd = dev[IN][n];
+                for (int n = 0; n < glob.n_devs[IN]; n++) {
+                    sd = glob.dev[IN][n];
                     if (sd->uses_callback) {
                         sd->buf_left = sd->buf_size;
                     }
@@ -1813,17 +1727,18 @@ process_callback(void **states[2],
             cbmutex(IN, false);
         }
     }
-    
+
     if (state_count[OUT] > 0) {
+        struct subdev *sd;
 
         cbmutex(OUT, true);
 
-        unlock_output = false;
-        sd = (struct subdev *)states[OUT][0]; 
+        bool_t unlock_output = false;
+        sd = (struct subdev *)states[OUT][0];
         if (sd->buf_left == 0 && sd->cb.iodelay_fill == 0) {
-            finished = true;
-            for (n = 0; n < n_devs[OUT]; n++) {
-                sd = dev[OUT][n];
+            bool_t finished = true;
+            for (int n = 0; n < glob.n_devs[OUT]; n++) {
+                sd = glob.dev[OUT][n];
                 if (sd->uses_callback &&
                     (sd->buf_left != 0 || sd->cb.iodelay_fill != 0))
                 {
@@ -1832,8 +1747,8 @@ process_callback(void **states[2],
                 }
             }
             if (finished) {
-                for (n = 0; n < n_devs[OUT]; n++) {
-                    sd = dev[OUT][n];
+                for (int n = 0; n < glob.n_devs[OUT]; n++) {
+                    sd = glob.dev[OUT][n];
                     if (sd->uses_callback) {
                         sd->buf_left = sd->buf_size;
                     }
@@ -1848,16 +1763,14 @@ process_callback(void **states[2],
             unlock_output = true;
         }
 
-        for (n = 0, i = 0; n < state_count[OUT]; n++) {
+        for (int n = 0, i = 0; n < state_count[OUT]; n++) {
             sd = (struct subdev *)states[OUT][n];
             if (frame_count != sd->block_size_frames) {
-                fprintf(stderr, "Error: unexpected callback I/O block "
-                        "alignment (%d != %d)\n",
+                fprintf(stderr, "Error: unexpected callback I/O block alignment (%d != %d)\n",
                         frame_count, sd->block_size_frames);
                 bf_exit(BF_EXIT_OTHER);
             }
-            process_callback_output(sd, &buffers[OUT][i], frame_count,
-                                    sd->cb.iodelay_fill != 0);
+            process_callback_output(sd, &buffers[OUT][i], frame_count, sd->cb.iodelay_fill != 0);
             if (sd->cb.iodelay_fill != 0) {
                 sd->cb.iodelay_fill--;
             }
@@ -1873,22 +1786,19 @@ process_callback(void **states[2],
         }
 
         /* last buffer? */
-        n = ca->cb_buf_index[IN];
-        i = ca->cb_buf_index[OUT];
-        buf_index = n < i ? i : n;
+        const int buf_index = ca->cb_buf_index[IN] < ca->cb_buf_index[OUT] ? ca->cb_buf_index[OUT] : ca->cb_buf_index[IN];
         sd = (struct subdev *)states[OUT][0];
         if (sd->cb.frames_left == -1 &&
             ((ca->frames_left != -1 && buf_index == ca->lastbuf_index + 1) ||
-             (ca->cb_frames_left != -1 &&
-              buf_index == ca->cb_lastbuf_index + 1)))
-        {        
-            n = ca->frames_left;
-            i = ca->cb_frames_left;
-            if (n == -1 || (n > i && i != -1)) {
-                n = i;
+             (ca->cb_frames_left != -1 && buf_index == ca->cb_lastbuf_index + 1)))
+        {
+            if (ca->frames_left == -1 ||
+                (ca->frames_left > ca->cb_frames_left && ca->cb_frames_left != -1))
+            {
+                ca->frames_left = ca->cb_frames_left;
             }
-            sd->cb.frames_left = n;
-        }    
+            sd->cb.frames_left = ca->frames_left;
+        }
 
         if (sd->cb.frames_left != -1) {
             if (sd->cb.frames_left > sd->block_size_frames) {
@@ -1900,8 +1810,8 @@ process_callback(void **states[2],
             }
             return sd->cb.frames_left;
         }
-        
+
     }
-    
+
     return 0;
 }
