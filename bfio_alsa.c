@@ -32,6 +32,7 @@ struct alsa_access_state {
     bool_t ismmap;
     bool_t ignore_xrun;
     int sw_period_size;
+    int device_period_size;
     int sample_size;
     int used_channels;
     int open_channels;
@@ -487,6 +488,7 @@ bfio_init(void *params,
     as->ignore_xrun = settings->ignore_xrun;
     as->ismmap = !!ismmap;
     as->sw_period_size = period_size;
+    as->device_period_size = *device_period_size;
     as->sample_size = sample_size;
     as->open_channels = open_channels;
     as->used_channels = used_channels;
@@ -631,6 +633,39 @@ bfio_read(int fd,
         errno = EPIPE;
         break;
     case -EAGAIN:
+        /* hack 2025: normal ALSA devices with connection to hardware normally only sets the fd ready for
+           reading at each hardware interrupt, which happens at period cycle. To support polling mode the
+           device is opened non-blocking though. However, virtual devices like Pipewire ALSA compatibility
+           layer will have the fd always ready for reading even if there is no data, and even if polling we
+           only get data at each period size.
+
+           This behavior from Pipewire maybe should be considered to be a bug, but this is how it behaves
+           at time of writing.
+
+           To work around this, we detect this case, and immediately switch the device to blocking mode.
+           This only makes sense if the device period size is not larger than the BruteFIR period though.
+
+           Another solution would be to simply always open the devices in blocking mode which would work
+           as long as the device block size is sane (ie same as or divisable by the BruteFIR period),
+           but for now we keep non-blocking to keep the support of devices having weird period sizes.
+
+           If the device period size is larger than the BruteFIR period we however have to keep
+           non-blocking and hope for the best.
+         */
+        if (as->device_period_size <= as->sw_period_size) {
+            struct pollfd pfd = { .fd = fd, .events = POLLIN, .revents = 0 };
+            if (poll(&pfd, 1, 0) == 1 && (pfd.revents & POLLIN) != 0) {
+                snd_pcm_sframes_t avail = snd_pcm_avail_update(as->handle);
+                if (avail == 0) {
+                    if ((err = snd_pcm_nonblock(as->handle, 0)) < 0) {
+                        fprintf(stderr, "ALSA I/O: Could not set likely virtual device to blocking mode: %s.\n", snd_strerror(err));
+                        errno = err;
+                        return -1;
+                    }
+                }
+            }
+        }
+
         errno = EAGAIN;
         return -1;
     default:
