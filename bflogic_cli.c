@@ -23,6 +23,7 @@
 
 #define IS_BFLOGIC_MODULE
 #include "timermacros.h"
+#include "compat.h"
 #include "bfmod.h"
 #include "defs.h"
 #include "log2.h"
@@ -169,7 +170,7 @@ static void
 commit_changes(FILE *stream)
 {
     int n, i;
-    
+
     FOR_IN_AND_OUT {
         for (n = 0; n < n_channels[IO]; n++) {
             if (newstate.delay[IO][n] != -1) {
@@ -213,7 +214,7 @@ static bool_t
 are_changes(void)
 {
     int n;
-    
+
     FOR_IN_AND_OUT {
         for (n = 0; n < n_channels[IO]; n++) {
             if (newstate.delay[IO][n] != -1 ||
@@ -237,23 +238,23 @@ print_overflows(FILE *stream)
 {
     double peak;
     int n;
-    
+
     fprintf(stream, "peak: ");
     for (n = 0; n < n_channels[OUT]; n++) {
-	peak = (volatile double)bfaccess->overflow[n].largest;
+        peak = (volatile double)bfaccess->overflow[n].largest;
         if (peak < (double)(volatile int32_t)bfaccess->overflow[n].intlargest) {
             peak = (double)(volatile int32_t)bfaccess->overflow[n].intlargest;
         }
-	if (peak != 0.0) {
-	    if ((peak = 20.0 * log10(peak / bfaccess->overflow[n].max))
+        if (peak != 0.0) {
+            if ((peak = 20.0 * log10(peak / bfaccess->overflow[n].max))
                 == 0.0)
-	    {                
-		peak = -0.0;
-	    }
+            {
+                peak = -0.0;
+            }
             fprintf(stream, "%d/%u/%+.2f ", n,
                     (volatile unsigned int)bfaccess->overflow[n].n_overflows,
                     peak);
-	} else {
+        } else {
             fprintf(stream, "%d/%u/-Inf ", n,
                     (volatile unsigned int)bfaccess->overflow[n].n_overflows);
         }
@@ -267,14 +268,14 @@ strtrim(char s[])
     char *p;
 
     while (*s == ' ' || *s == '\t') {
-	s++;
+        s++;
     }
     if (*s == '\0') {
-	return s;
+        return s;
     }
     p = s + strlen(s) - 1;
     while ((*p == ' ' || *p == '\t') && p != s) {
-	p--;
+        p--;
     }
     *(p + 1) = '\0';
     return s;
@@ -292,113 +293,113 @@ get_id(FILE *stream,
 
     str = strtrim(str);
     if (str[0] == '\"') {
-	str += 1;
-	if ((*p = strchr(str, '\"')) == NULL) {
-	    fprintf(stream, "Invalid string.\n");
-	    return false;
-	}
-	**p = '\0';
-	switch (type) {
-	case FILTER_ID:
-	    io = -2;
-	    for (*id = 0; *id < n_filters; (*id)++) {
-		if (strcmp(filters[*id].name, str) == 0) {
-		    break;
-		}
-	    }
-	    if (*id == n_filters) {
-		fprintf(stream, "There is no filter with name \"%s\".\n", str);
-		return false;
-	    }
-	    break;
-	case COEFF_ID:
-	    for (*id = 0; *id < n_coeffs; (*id)++) {
-		if (strcmp(coeffs[*id].name, str) == 0) {
-		    break;
-		}
-	    }
-	    if (*id == n_coeffs) {
-		fprintf(stream, "There is no coefficient set with name "
-			"\"%s\".\n", str);
-		return false;
-	    }
-	    break;	    
-	case INPUT_ID:
-	case OUTPUT_ID:
-	    io = (type == INPUT_ID) ? IN : OUT;
-	    for (*id = 0; *id < n_channels[io]; (*id)++) {
-		if (strcmp(channels[io][*id].name, str) == 0) {
-		    break;
-		}
-	    }
-	    if (*id == n_channels[io]) {
-		fprintf(stream, "There is no %s with name \"%s\".\n",
-			(io == IN) ? "input" : "output", str);
-		return false;
-	    }
-	    break;
-	}
+        str += 1;
+        if ((*p = strchr(str, '\"')) == NULL) {
+            fprintf(stream, "Invalid string.\n");
+            return false;
+        }
+        **p = '\0';
+        switch (type) {
+        case FILTER_ID:
+            io = -2;
+            for (*id = 0; *id < n_filters; (*id)++) {
+                if (strcmp(filters[*id].name, str) == 0) {
+                    break;
+                }
+            }
+            if (*id == n_filters) {
+                fprintf(stream, "There is no filter with name \"%s\".\n", str);
+                return false;
+            }
+            break;
+        case COEFF_ID:
+            for (*id = 0; *id < n_coeffs; (*id)++) {
+                if (strcmp(coeffs[*id].name, str) == 0) {
+                    break;
+                }
+            }
+            if (*id == n_coeffs) {
+                fprintf(stream, "There is no coefficient set with name "
+                        "\"%s\".\n", str);
+                return false;
+            }
+            break;
+        case INPUT_ID:
+        case OUTPUT_ID:
+            io = (type == INPUT_ID) ? IN : OUT;
+            for (*id = 0; *id < n_channels[io]; (*id)++) {
+                if (strcmp(channels[io][*id].name, str) == 0) {
+                    break;
+                }
+            }
+            if (*id == n_channels[io]) {
+                fprintf(stream, "There is no %s with name \"%s\".\n",
+                        (io == IN) ? "input" : "output", str);
+                return false;
+            }
+            break;
+        }
     } else {
-	*id = strtol(str, p, 10);
-	if (*p == str) {
-	    fprintf(stream, "Invalid number.\n");
-	    return false;
-	}
-	if (*id < 0 && type != COEFF_ID) {
-	    fprintf(stream, "Negative number (%d) is not allowed.\n", *id);
-	    return false;
-	}
-	switch (type) {	    
-	case FILTER_ID:
-	    io = -2;
-	    if (*id >= n_filters) {
-		fprintf(stream, "Filter id %d is out of range.\n", *id);
-		return false;
-	    }
-	    break;
-	case COEFF_ID:
-	    if (*id >= (int)n_coeffs) {
-		fprintf(stream, "Coefficient set id %d is out of range.\n",
-			*id);
-		return false;
-	    }
-	    break;
-	case INPUT_ID:
-	case OUTPUT_ID:
-	    io = (type == INPUT_ID) ? IN : OUT;
-	    if (*id >= n_channels[io]) {
-		fprintf(stream, "%s id %d is out of range.\n",
-			(io == IN) ? "Input" : "Output", *id);
-		return false;
-	    }
-	    break;	    
-	}
+        *id = strtol(str, p, 10);
+        if (*p == str) {
+            fprintf(stream, "Invalid number.\n");
+            return false;
+        }
+        if (*id < 0 && type != COEFF_ID) {
+            fprintf(stream, "Negative number (%d) is not allowed.\n", *id);
+            return false;
+        }
+        switch (type) {
+        case FILTER_ID:
+            io = -2;
+            if (*id >= n_filters) {
+                fprintf(stream, "Filter id %d is out of range.\n", *id);
+                return false;
+            }
+            break;
+        case COEFF_ID:
+            if (*id >= (int)n_coeffs) {
+                fprintf(stream, "Coefficient set id %d is out of range.\n",
+                        *id);
+                return false;
+            }
+            break;
+        case INPUT_ID:
+        case OUTPUT_ID:
+            io = (type == INPUT_ID) ? IN : OUT;
+            if (*id >= n_channels[io]) {
+                fprintf(stream, "%s id %d is out of range.\n",
+                        (io == IN) ? "Input" : "Output", *id);
+                return false;
+            }
+            break;
+        }
     }
     if (io != -1 && rid != -1) {
-	if (io == -2) {
-	    for (n = 0; n < filters[rid].n_filters[IN]; n++) {
-		if (filters[rid].filters[IN][n] == *id) {
-		    break;
-		}
-	    }
-	    if (n == filters[rid].n_filters[IN]) {
-		fprintf(stream, "Filter id %d does not exist in the given "
-			"filter.\n", *id);
-		return false;
-	    }
-	} else {
-	    for (n = 0; n < filters[rid].n_channels[io]; n++) {
-		if (filters[rid].channels[io][n] == *id) {
-		    break;
-		}
-	    }
-	    if (n == filters[rid].n_channels[io]) {
-		fprintf(stream, "%s id %d does not exist in the given "
-			"filter.\n", (io == IN) ? "Input" : "Output", *id);
-		return false;
-	    }
-	}
-	*id = n;
+        if (io == -2) {
+            for (n = 0; n < filters[rid].n_filters[IN]; n++) {
+                if (filters[rid].filters[IN][n] == *id) {
+                    break;
+                }
+            }
+            if (n == filters[rid].n_filters[IN]) {
+                fprintf(stream, "Filter id %d does not exist in the given "
+                        "filter.\n", *id);
+                return false;
+            }
+        } else {
+            for (n = 0; n < filters[rid].n_channels[io]; n++) {
+                if (filters[rid].channels[io][n] == *id) {
+                    break;
+                }
+            }
+            if (n == filters[rid].n_channels[io]) {
+                fprintf(stream, "%s id %d does not exist in the given "
+                        "filter.\n", (io == IN) ? "Input" : "Output", *id);
+                return false;
+            }
+        }
+        *id = n;
     }
     *p += 1;
     while (**p == ' ' || **p == '\t') {
@@ -409,7 +410,7 @@ get_id(FILE *stream,
 
 static bool_t
 parse_command(FILE *stream,
-	      char cmd[],
+              char cmd[],
               struct sleep_task *_sleep_task)
 {
     struct sleep_task sleep_task;
@@ -419,120 +420,120 @@ parse_command(FILE *stream,
     char *p;
 
     if (strcmp(cmd, "lf") == 0) {
-	fprintf(stream, "Filters:\n");
-	for (n = 0; n < n_filters; n++) {
-	    fprintf(stream, "  %d: \"%s\"\n", n, filters[n].name);
-	    if (fctrl[n].coeff < 0) {
-		fprintf(stream, "      coeff set: %d (no filter)\n",
-			fctrl[n].coeff);
-	    } else {
-		fprintf(stream, "      coeff set: %d\n", fctrl[n].coeff);
-	    }
-	    fprintf(stream, "      delay blocks: %d (%d samples)\n",
-		    fctrl[n].delayblocks, fctrl[n].delayblocks * block_length);
-	    FOR_IN_AND_OUT {
-		fprintf(stream, (IO == IN) ? "      from inputs:  " :
-			"      to outputs:   ");
-		for (i = 0; i < filters[n].n_channels[IO]; i++) {
+        fprintf(stream, "Filters:\n");
+        for (n = 0; n < n_filters; n++) {
+            fprintf(stream, "  %d: \"%s\"\n", n, filters[n].name);
+            if (fctrl[n].coeff < 0) {
+                fprintf(stream, "      coeff set: %d (no filter)\n",
+                        fctrl[n].coeff);
+            } else {
+                fprintf(stream, "      coeff set: %d\n", fctrl[n].coeff);
+            }
+            fprintf(stream, "      delay blocks: %d (%d samples)\n",
+                    fctrl[n].delayblocks, fctrl[n].delayblocks * block_length);
+            FOR_IN_AND_OUT {
+                fprintf(stream, (IO == IN) ? "      from inputs:  " :
+                        "      to outputs:   ");
+                for (i = 0; i < filters[n].n_channels[IO]; i++) {
                     if (fctrl[n].scale[IO][i] < 0) {
                         att = -20.0 * log10(-fctrl[n].scale[IO][i]);
                     } else {
                         att = -20.0 * log10(fctrl[n].scale[IO][i]);
                     }
-		    if (att == 0.0) {
-			att = 0.0000001; /* to show up as 0.0 and not -0.0 */
-		    }
-		    fprintf(stream, "%d/%.1f", filters[n].channels[IO][i],
-			    att);
+                    if (att == 0.0) {
+                        att = 0.0000001; /* to show up as 0.0 and not -0.0 */
+                    }
+                    fprintf(stream, "%d/%.1f", filters[n].channels[IO][i],
+                            att);
                     if (fctrl[n].scale[IO][i] < 0) {
                         fprintf(stream, "/-1 ");
                     } else {
                         fprintf(stream, " ");
                     }
-		}
-		fprintf(stream, "\n");
-	    }
-	    FOR_IN_AND_OUT {
-		fprintf(stream, (IO == IN) ? "      from filters: " :
-			"      to filters:   ");
-		for (i = 0; i < filters[n].n_filters[IO]; i++) {
-		    if (IO == IN) {                        
+                }
+                fprintf(stream, "\n");
+            }
+            FOR_IN_AND_OUT {
+                fprintf(stream, (IO == IN) ? "      from filters: " :
+                        "      to filters:   ");
+                for (i = 0; i < filters[n].n_filters[IO]; i++) {
+                    if (IO == IN) {
                         if (fctrl[n].fscale[i] < 0) {
                             att = -20.0 * log10(-fctrl[n].fscale[i]);
                         } else {
                             att = -20.0 * log10(fctrl[n].fscale[i]);
                         }
-			if (att == 0.0) {
-			    att = 0.0000001;
-			}
-			fprintf(stream, "%d/%.1f", filters[n].filters[IO][i],
-				att);
+                        if (att == 0.0) {
+                            att = 0.0000001;
+                        }
+                        fprintf(stream, "%d/%.1f", filters[n].filters[IO][i],
+                                att);
                         if (fctrl[n].fscale[i] < 0) {
                             fprintf(stream, "/-1 ");
                         } else {
                             fprintf(stream, " ");
                         }
-		    } else {
-			fprintf(stream, "%d ",
-				filters[n].filters[IO][i]);
-		    }
-		}
-		fprintf(stream, "\n");
-	    }
-	}
-	fprintf(stream, "\n");
+                    } else {
+                        fprintf(stream, "%d ",
+                                filters[n].filters[IO][i]);
+                    }
+                }
+                fprintf(stream, "\n");
+            }
+        }
+        fprintf(stream, "\n");
     } else if (strcmp(cmd, "lc") == 0) {
-	fprintf(stream, "Coefficient sets:\n");
-	for (n = 0; n < n_coeffs; n++) {
-	    fprintf(stream, "  %d: \"%s\" (%d blocks)\n", n,
-		    coeffs[n].name,
-		    coeffs[n].n_blocks);
-	}
-	fprintf(stream, "\n");
+        fprintf(stream, "Coefficient sets:\n");
+        for (n = 0; n < n_coeffs; n++) {
+            fprintf(stream, "  %d: \"%s\" (%d blocks)\n", n,
+                    coeffs[n].name,
+                    coeffs[n].n_blocks);
+        }
+        fprintf(stream, "\n");
     } else if (strcmp(cmd, "li") == 0) {
-	fprintf(stream, "Input channels:\n");
-	for (n = 0; n < n_channels[IN]; n++) {
-	    fprintf(stream, "  %d: \"%s\" (delay: %d:%d) %s\n", n,
-		    channels[IN][n].name, bfaccess->get_delay(IN, n),
+        fprintf(stream, "Input channels:\n");
+        for (n = 0; n < n_channels[IN]; n++) {
+            fprintf(stream, "  %d: \"%s\" (delay: %d:%d) %s\n", n,
+                    channels[IN][n].name, bfaccess->get_delay(IN, n),
                     bfaccess->get_subdelay(IN, n),
-		    bfaccess->ismuted(IN, n) ? "(muted)" : "");
-	}
-	fprintf(stream, "\n");
+                    bfaccess->ismuted(IN, n) ? "(muted)" : "");
+        }
+        fprintf(stream, "\n");
     } else if (strcmp(cmd, "lo") == 0) {
-	fprintf(stream, "Output channels:\n");
-	for (n = 0; n < n_channels[OUT]; n++) {
-	    fprintf(stream, "  %d: \"%s\" (delay: %d:%d) %s\n", n,
-		    channels[OUT][n].name, bfaccess->get_delay(OUT, n),
+        fprintf(stream, "Output channels:\n");
+        for (n = 0; n < n_channels[OUT]; n++) {
+            fprintf(stream, "  %d: \"%s\" (delay: %d:%d) %s\n", n,
+                    channels[OUT][n].name, bfaccess->get_delay(OUT, n),
                     bfaccess->get_subdelay(OUT, n),
-		    bfaccess->ismuted(OUT, n) ? "(muted)" : "");
-	}
-	fprintf(stream, "\n");	
+                    bfaccess->ismuted(OUT, n) ? "(muted)" : "");
+        }
+        fprintf(stream, "\n");
     } else if (strcmp(cmd, "lm") == 0) {
-	names = bfaccess->bflogic_names(&i);
-	if (names != NULL) {
-	    fprintf(stream, "Logic modules:\n");
-	    for (n = 0; n < i; n++) {
-		fprintf(stream, "  %d: \"%s\"\n", n, names[n]);
-	    }
-	    fprintf(stream, "\n");	
-	}
-	FOR_IN_AND_OUT {
-	    names = bfaccess->bfio_names(IO, &i);
-	    if (names != NULL) {
-		fprintf(stream, "%s modules:\n", (IO == IN) ? "Input" :
-			"Output");
-		for (n = 0; n < i; n++) {
-		    bfaccess->bfio_range(IO, n, range);
-		    fprintf(stream, "  %d (%d - %d): \"%s\"\n",
-			    n, range[0], range[1], names[n]);
-		}
-		fprintf(stream, "\n");	
-	    }
-	}
+        names = bfaccess->bflogic_names(&i);
+        if (names != NULL) {
+            fprintf(stream, "Logic modules:\n");
+            for (n = 0; n < i; n++) {
+                fprintf(stream, "  %d: \"%s\"\n", n, names[n]);
+            }
+            fprintf(stream, "\n");
+        }
+        FOR_IN_AND_OUT {
+            names = bfaccess->bfio_names(IO, &i);
+            if (names != NULL) {
+                fprintf(stream, "%s modules:\n", (IO == IN) ? "Input" :
+                        "Output");
+                for (n = 0; n < i; n++) {
+                    bfaccess->bfio_range(IO, n, range);
+                    fprintf(stream, "  %d (%d - %d): \"%s\"\n",
+                            n, range[0], range[1], names[n]);
+                }
+                fprintf(stream, "\n");
+            }
+        }
     } else if (strstr(cmd, "cffa") == cmd) {
-	if (get_id(stream, cmd + 4, &cmd, &rid, FILTER_ID, -1) &&
-	    get_id(stream, cmd, &cmd, &id, FILTER_ID, rid))
-	{
+        if (get_id(stream, cmd + 4, &cmd, &rid, FILTER_ID, -1) &&
+            get_id(stream, cmd, &cmd, &id, FILTER_ID, rid))
+        {
             if (*cmd == 'M' || *cmd == 'm') {
                 cmd++;
                 att = strtod(cmd, &p);
@@ -555,11 +556,11 @@ parse_command(FILE *stream,
                     newstate.fchanged[rid] = true;
                 }
             }
-	}
+        }
     } else if (strstr(cmd, "cfia") == cmd) {
-	if (get_id(stream, cmd + 4, &cmd, &rid, FILTER_ID, -1) &&
-	    get_id(stream, cmd, &cmd, &id, INPUT_ID, rid))
-	{
+        if (get_id(stream, cmd + 4, &cmd, &rid, FILTER_ID, -1) &&
+            get_id(stream, cmd, &cmd, &id, INPUT_ID, rid))
+        {
             if (*cmd == 'M' || *cmd == 'm') {
                 cmd++;
                 att = strtod(cmd, &p);
@@ -582,11 +583,11 @@ parse_command(FILE *stream,
                     newstate.fchanged[rid] = true;
                 }
             }
-	}
+        }
     } else if (strstr(cmd, "cfoa") == cmd) {
-	if (get_id(stream, cmd + 4, &cmd, &rid, FILTER_ID, -1) &&
-	    get_id(stream, cmd, &cmd, &id, OUTPUT_ID, rid))
-	{
+        if (get_id(stream, cmd + 4, &cmd, &rid, FILTER_ID, -1) &&
+            get_id(stream, cmd, &cmd, &id, OUTPUT_ID, rid))
+        {
             if (*cmd == 'M' || *cmd == 'm') {
                 cmd++;
                 att = strtod(cmd, &p);
@@ -610,17 +611,17 @@ parse_command(FILE *stream,
                     newstate.fchanged[rid] = true;
                 }
             }
-	}
+        }
     } else if (strstr(cmd, "cid") == cmd) {
-	if (get_id(stream, cmd + 3, &cmd, &id, INPUT_ID, -1)) {
-	    n = strtol(cmd, &p, 10);
-	    if (cmd == p || n < 0) {
-		fprintf(stream, "Invalid input delay.\n");
-	    } else {
+        if (get_id(stream, cmd + 3, &cmd, &id, INPUT_ID, -1)) {
+            n = strtol(cmd, &p, 10);
+            if (cmd == p || n < 0) {
+                fprintf(stream, "Invalid input delay.\n");
+            } else {
                 newstate.delay[IN][id] = n;
-	    }
+            }
             cmd = p;
-	    n = strtol(cmd, &p, 10);
+            n = strtol(cmd, &p, 10);
             if (cmd != p) {
                 if (n <= -BF_SAMPLE_SLOTS || n >= BF_SAMPLE_SLOTS) {
                     fprintf(stream, "Invalid input subdelay.\n");
@@ -628,17 +629,17 @@ parse_command(FILE *stream,
                     newstate.subdelay[IN][id] = n;
                 }
             }
-	}
+        }
     } else if (strstr(cmd, "cod") == cmd) {
-	if (get_id(stream, cmd + 3, &cmd, &id, OUTPUT_ID, -1)) {
-	    n = strtol(cmd, &p, 10);
-	    if (cmd == p || n < 0) {
-		fprintf(stream, "Invalid output delay.\n");
-	    } else {
+        if (get_id(stream, cmd + 3, &cmd, &id, OUTPUT_ID, -1)) {
+            n = strtol(cmd, &p, 10);
+            if (cmd == p || n < 0) {
+                fprintf(stream, "Invalid output delay.\n");
+            } else {
                 newstate.delay[OUT][id] = n;
-	    }
+            }
             cmd = p;
-	    n = strtol(cmd, &p, 10);
+            n = strtol(cmd, &p, 10);
             if (cmd != p) {
                 if (n <= -BF_SAMPLE_SLOTS || n >= BF_SAMPLE_SLOTS) {
                     fprintf(stream, "Invalid output subdelay.\n");
@@ -646,85 +647,85 @@ parse_command(FILE *stream,
                     newstate.subdelay[OUT][id] = n;
                 }
             }
-	}
+        }
     } else if (strstr(cmd, "cfc") == cmd) {
-	if (get_id(stream, cmd + 3, &cmd, &rid, FILTER_ID, -1) &&
-	    get_id(stream, cmd, &cmd, &id, COEFF_ID, rid))
-	{
-	    newstate.fctrl[rid].coeff = id;
+        if (get_id(stream, cmd + 3, &cmd, &rid, FILTER_ID, -1) &&
+            get_id(stream, cmd, &cmd, &id, COEFF_ID, rid))
+        {
+            newstate.fctrl[rid].coeff = id;
             newstate.fchanged[rid] = true;
-	}
+        }
     } else if (strstr(cmd, "cfd") == cmd) {
-	if (get_id(stream, cmd + 3, &cmd, &rid, FILTER_ID, -1)) {
-	    n = strtol(cmd, &p, 10);
-	    if (cmd == p || n < 0 || n > n_maxblocks - 1) {
-		fprintf(stream, "Invalid filter delay.\n");
-	    } else {
-		newstate.fctrl[rid].delayblocks = n;
+        if (get_id(stream, cmd + 3, &cmd, &rid, FILTER_ID, -1)) {
+            n = strtol(cmd, &p, 10);
+            if (cmd == p || n < 0 || n > n_maxblocks - 1) {
+                fprintf(stream, "Invalid filter delay.\n");
+            } else {
+                newstate.fctrl[rid].delayblocks = n;
                 newstate.fchanged[rid] = true;
-	    }
-	}
+            }
+        }
     } else if (strstr(cmd, "tmo") == cmd) {
-	if (get_id(stream, cmd + 3, &cmd, &id, OUTPUT_ID, -1)) {
+        if (get_id(stream, cmd + 3, &cmd, &id, OUTPUT_ID, -1)) {
             newstate.toggle_mute[OUT][id] = !newstate.toggle_mute[OUT][id];
-	}
+        }
     } else if (strstr(cmd, "tmi") == cmd) {
-	if (get_id(stream, cmd + 3, &cmd, &id, INPUT_ID, -1)) {
+        if (get_id(stream, cmd + 3, &cmd, &id, INPUT_ID, -1)) {
             newstate.toggle_mute[IN][id] = !newstate.toggle_mute[IN][id];
-	}
+        }
     } else if (strstr(cmd, "imc") == cmd) {
-	id = strtol(cmd + 3, &p, 10);
-	if (p == cmd + 3) {
-	    id = -1;
-	}
-	if (bfaccess->bfio_command(IN, id, p, &p) == -1) {
-	    fprintf(stream, "Command failed: %s\n", p);
-	} else {
-	    fprintf(stream, "%s", p);
-	}
+        id = strtol(cmd + 3, &p, 10);
+        if (p == cmd + 3) {
+            id = -1;
+        }
+        if (bfaccess->bfio_command(IN, id, p, &p) == -1) {
+            fprintf(stream, "Command failed: %s\n", p);
+        } else {
+            fprintf(stream, "%s", p);
+        }
     } else if (strstr(cmd, "omc") == cmd) {
-	id = strtol(cmd + 3, &p, 10);
-	if (p == cmd + 3) {
-	    id = -1;
-	}
-	if (bfaccess->bfio_command(OUT, id, p, &p) == -1) {
-	    fprintf(stream, "Command failed: %s\n", p);
-	} else {
-	    fprintf(stream, "%s", p);
-	}
+        id = strtol(cmd + 3, &p, 10);
+        if (p == cmd + 3) {
+            id = -1;
+        }
+        if (bfaccess->bfio_command(OUT, id, p, &p) == -1) {
+            fprintf(stream, "Command failed: %s\n", p);
+        } else {
+            fprintf(stream, "%s", p);
+        }
     } else if (strstr(cmd, "lmc") == cmd) {
-	id = strtol(cmd + 3, &p, 10);
-	if (p == cmd + 3) {
-	    id = -1;
-	    names = bfaccess->bflogic_names(&i);
-	    if (names != NULL) {
-		p = strtrim(cmd + 3);
-		for (n = 0; n < i; n++) {
-		    if (strstr(p, names[n]) == p) {
-			id = n;
-			p += strlen(names[n]);
-			break;
-		    }
-		}
-	    }
-	}
-	if (bfaccess->bflogic_command(id, p, &p) == -1) {
-	    fprintf(stream, "Command failed: %s\n", p);
-	} else {
-	    fprintf(stream, "%s", p);
-	}
+        id = strtol(cmd + 3, &p, 10);
+        if (p == cmd + 3) {
+            id = -1;
+            names = bfaccess->bflogic_names(&i);
+            if (names != NULL) {
+                p = strtrim(cmd + 3);
+                for (n = 0; n < i; n++) {
+                    if (strstr(p, names[n]) == p) {
+                        id = n;
+                        p += strlen(names[n]);
+                        break;
+                    }
+                }
+            }
+        }
+        if (bfaccess->bflogic_command(id, p, &p) == -1) {
+            fprintf(stream, "Command failed: %s\n", p);
+        } else {
+            fprintf(stream, "%s", p);
+        }
     } else if (strcmp(cmd, "ppk") == 0) {
-	print_overflows(stream);
+        print_overflows(stream);
     } else if (strcmp(cmd, "rpk") == 0) {
-	bfaccess->reset_peak();
+        bfaccess->reset_peak();
     } else if (strcmp(cmd, "upk") == 0) {
-	print_peak_updates = !print_peak_updates;
+        print_peak_updates = !print_peak_updates;
     } else if (strcmp(cmd, "tp") == 0) {
-	print_prompt = !print_prompt;
+        print_prompt = !print_prompt;
     } else if (strcmp(cmd, "rti") == 0) {
-	fprintf(stream, "Realtime index: %.3f\n", bfaccess->realtime_index());
+        fprintf(stream, "Realtime index: %.3f\n", bfaccess->realtime_index());
     } else if (strcmp(cmd, "quit") == 0) {
-	return false;
+        return false;
     } else if (strstr(cmd, "sleep") == cmd) {
         memset(&sleep_task, 0, sizeof(struct sleep_task));
         if ((p = strchr(cmd + 5, 'b')) != NULL) {
@@ -751,7 +752,7 @@ parse_command(FILE *stream,
                         sleep(sleep_task.seconds);
                     }
                     if (sleep_task.useconds > 0) {
-                        usleep(sleep_task.useconds);
+                        compat_usleep(sleep_task.useconds);
                     }
                 }
             } else {
@@ -759,56 +760,56 @@ parse_command(FILE *stream,
             }
         }
     } else if (strstr(cmd, "abort") == cmd) {
-	bfaccess->exit(BF_EXIT_OK);
+        bfaccess->exit(BF_EXIT_OK);
     } else if (strcmp(cmd, "help") == 0) {
-	fprintf(stream, HELP_TEXT);
+        fprintf(stream, HELP_TEXT);
     } else {
-	fprintf(stream, "Unknown command \"%s\", type \"help\" for help.\n",
-		cmd);
+        fprintf(stream, "Unknown command \"%s\", type \"help\" for help.\n",
+                cmd);
     }
     return true;
 }
 
 static void
 wait_data(FILE *client_stream,
-	  int client_fd,
-	  int callback_fd)
+          int client_fd,
+          int callback_fd)
 {
     fd_set rfds;
     uint32_t msg;
     int n;
 
     FD_ZERO(&rfds);
-    
+
     do {
-	FD_SET(client_fd, &rfds);
-	FD_SET(callback_fd, &rfds);
-	if (client_stream != NULL) {
-	    fflush(client_stream);
-	}
-	while ((n = select(client_fd < callback_fd ? callback_fd + 1 :
-			   client_fd + 1, &rfds, NULL, NULL, NULL)) == -1
-	       && errno == EINTR);
-	if (n == -1) {
-	    fprintf(stderr, "CLI: Select failed: %s.\n", strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
-	if (FD_ISSET(callback_fd, &rfds)) {
-	    if (!readfd(callback_fd, &msg, 4)) {
+        FD_SET(client_fd, &rfds);
+        FD_SET(callback_fd, &rfds);
+        if (client_stream != NULL) {
+            fflush(client_stream);
+        }
+        while ((n = select(client_fd < callback_fd ? callback_fd + 1 :
+                           client_fd + 1, &rfds, NULL, NULL, NULL)) == -1
+               && errno == EINTR);
+        if (n == -1) {
+            fprintf(stderr, "CLI: Select failed: %s.\n", strerror(errno));
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        if (FD_ISSET(callback_fd, &rfds)) {
+            if (!readfd(callback_fd, &msg, 4)) {
                 bfaccess->exit(BF_EXIT_OK);
             }
-	    switch (msg) {
-	    case BF_FDEVENT_PEAK:
-		if (print_peak_updates) {
-		    print_overflows(client_stream);
-		}
-		break;
-	    default:
-		fprintf(stderr, "CLI: Invalid callback code: %d.\n", msg);
-		bfaccess->exit(BF_EXIT_OTHER);
-		break;
-	    }
-	}
+            switch (msg) {
+            case BF_FDEVENT_PEAK:
+                if (print_peak_updates) {
+                    print_overflows(client_stream);
+                }
+                break;
+            default:
+                fprintf(stderr, "CLI: Invalid callback code: %d.\n", msg);
+                bfaccess->exit(BF_EXIT_OTHER);
+                break;
+            }
+        }
     } while (!FD_ISSET(client_fd, &rfds));
 }
 
@@ -863,7 +864,7 @@ parse(FILE *stream,
         bfaccess->control_mutex(1);
         commit_changes(stream);
         bfaccess->control_mutex(0);
-    }    
+    }
     return !do_quit;
 }
 
@@ -990,7 +991,7 @@ parse_string(FILE *stream,
              char cmd[MAXCMDLINE])
 {
     int slen, n, i;
-    
+
     slen = strlen(inbuf);
     cmd[0] = '\0';
     for (n = 0, i = 0; n < slen; n++) {
@@ -1029,8 +1030,8 @@ stream_loop(int event_fd,
             FILE *outstream)
 {
     char inbuf[MAXCMDLINE], cmd[MAXCMDLINE];
-    
-    inbuf[MAXCMDLINE - 1] = '\0';	
+
+    inbuf[MAXCMDLINE - 1] = '\0';
     while (true) {
         wait_data(outstream, infd, event_fd);
         if (fgets(inbuf, MAXCMDLINE - 1, instream) == NULL) {
@@ -1049,36 +1050,36 @@ socket_loop(int event_fd,
     char inbuf[MAXCMDLINE], cmd[MAXCMDLINE];
     FILE *stream;
     int sock;
-    
-    while (true) {
-	wait_data(NULL, lsock, event_fd);
-	if ((sock = accept(lsock, NULL, NULL)) == -1) {
-	    fprintf(stderr, "CLI: Accept failed: %s.\n", strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
-	if ((stream = fdopen(sock, "r+")) == NULL) {
-	    fprintf(stderr, "CLI: fdopen failed: %s.\n", strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
-	setvbuf(stream, NULL, _IOLBF, 0);
 
-	fprintf(stream, WELCOME_TEXT);
-	fprintf(stream, PROMPT_TEXT);
-	
-	wait_data(stream, sock, event_fd);
-	cmd[MAXCMDLINE - 1] = '\0';	
-	while (fgets(inbuf, MAXCMDLINE - 1, stream) != NULL) {
+    while (true) {
+        wait_data(NULL, lsock, event_fd);
+        if ((sock = accept(lsock, NULL, NULL)) == -1) {
+            fprintf(stderr, "CLI: Accept failed: %s.\n", strerror(errno));
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        if ((stream = fdopen(sock, "r+")) == NULL) {
+            fprintf(stderr, "CLI: fdopen failed: %s.\n", strerror(errno));
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        setvbuf(stream, NULL, _IOLBF, 0);
+
+        fprintf(stream, WELCOME_TEXT);
+        fprintf(stream, PROMPT_TEXT);
+
+        wait_data(stream, sock, event_fd);
+        cmd[MAXCMDLINE - 1] = '\0';
+        while (fgets(inbuf, MAXCMDLINE - 1, stream) != NULL) {
             parse_string(stream, inbuf, cmd);
-	    if (!parse(stream, cmd, NULL)) {
-		break;
-	    }
-	    if (print_prompt) {
-		fprintf(stream, PROMPT_TEXT);
-	    }
-	    wait_data(stream, sock, event_fd);
-	}
-	print_peak_updates = false;
-	fclose(stream);
+            if (!parse(stream, cmd, NULL)) {
+                break;
+            }
+            if (print_prompt) {
+                fprintf(stream, PROMPT_TEXT);
+            }
+            wait_data(stream, sock, event_fd);
+        }
+        print_peak_updates = false;
+        fclose(stream);
     }
 }
 
@@ -1180,7 +1181,7 @@ bflogic_preinit(int *version_major,
             return -1;
         }
     }
-    
+
     n_coeffs = _n_coeffs;
     n_maxblocks = _n_maxblocks;
     block_length = _block_length;
@@ -1194,7 +1195,7 @@ bflogic_preinit(int *version_major,
         if (port == -1 && lport == NULL) {
             fprintf(stderr, "CLI: \"port\" or \"script\" must be set.\n");
             return -1;
-        }    
+        }
         bfevents->fdevents = BF_FDEVENT_PEAK;
         *fork_mode = BF_FORK_PRIO_MAX;
     } else {
@@ -1202,7 +1203,7 @@ bflogic_preinit(int *version_major,
             fprintf(stderr, "CLI: Cannot have both \"script\" and \"port\" "
                     "set.\n");
             return -1;
-        }    
+        }
         bfevents->block_start = block_start;
         *fork_mode = BF_FORK_DONT_FORK;
     }
@@ -1218,16 +1219,16 @@ bflogic_preinit(int *version_major,
 
 int
 bflogic_init(struct bfaccess *_bfaccess,
-	     int sample_rate,
-	     int _block_length,
-	     int _n_maxblocks,
-	     int _n_coeffs,
-	     const struct bfcoeff _coeffs[],
-	     const int _n_channels[2],
-	     const struct bfchannel *_channels[2],
-	     int _n_filters,
-	     const struct bffilter _filters[],
-	     int event_fd,
+             int sample_rate,
+             int _block_length,
+             int _n_maxblocks,
+             int _n_coeffs,
+             const struct bfcoeff _coeffs[],
+             const int _n_channels[2],
+             const struct bfchannel *_channels[2],
+             int _n_filters,
+             const struct bffilter _filters[],
+             int event_fd,
              int synch_fd)
 {
     FILE *stream, *instream, *outstream;
@@ -1239,7 +1240,7 @@ bflogic_init(struct bfaccess *_bfaccess,
 
     bfaccess = _bfaccess;
     fctrl = _bfaccess->fctrl;
-    
+
     if (script != NULL) {
         return 0;
     }
@@ -1285,7 +1286,7 @@ bflogic_init(struct bfaccess *_bfaccess,
                 newtio.c_cc[_n] = _POSIX_VDISABLE;
             }
         }
-#endif    
+#endif
         if (tcflush(fd, TCIFLUSH) == -1) {
             fprintf(stderr, "CLI: tcflush failed: %s.\n", strerror(errno));
             bfaccess->exit(BF_EXIT_OTHER);
@@ -1300,80 +1301,80 @@ bflogic_init(struct bfaccess *_bfaccess,
         }
         setvbuf(stream, NULL, _IOLBF, 0);
         WRITE_TO_SYNCH_FD;
-        
+
         stream_loop(event_fd, fd, stream, stream);
-        
+
     } else if (port != -1 && port2 != -1) {
         /* pipe interface */
-	if ((instream = fdopen(port, "r")) == NULL) {
-	    fprintf(stderr, "CLI: fdopen 'r' on fd %d failed: %s.\n",
+        if ((instream = fdopen(port, "r")) == NULL) {
+            fprintf(stderr, "CLI: fdopen 'r' on fd %d failed: %s.\n",
                     port, strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
-	setvbuf(instream, NULL, _IOLBF, 0);
-	if ((outstream = fdopen(port2, "w")) == NULL) {
-	    fprintf(stderr, "CLI: fdopen 'w' on fd %d failed: %s.\n",
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        setvbuf(instream, NULL, _IOLBF, 0);
+        if ((outstream = fdopen(port2, "w")) == NULL) {
+            fprintf(stderr, "CLI: fdopen 'w' on fd %d failed: %s.\n",
                     port2, strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
-	setvbuf(outstream, NULL, _IOLBF, 0);
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        setvbuf(outstream, NULL, _IOLBF, 0);
         WRITE_TO_SYNCH_FD;
 
         stream_loop(event_fd, port, instream, outstream);
 
     } else if (port != -1) {
         /* TCP interface */
-	memset(&s_in, 0, sizeof(s_in));
-	s_in.sin_family = AF_INET;
-	s_in.sin_addr.s_addr = INADDR_ANY;
-	s_in.sin_port = htons(port);
+        memset(&s_in, 0, sizeof(s_in));
+        s_in.sin_family = AF_INET;
+        s_in.sin_addr.s_addr = INADDR_ANY;
+        s_in.sin_port = htons(port);
 
-	if ((lsock = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
-	    fprintf(stderr, "CLI: Failed to create socket: %s.\n",
+        if ((lsock = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
+            fprintf(stderr, "CLI: Failed to create socket: %s.\n",
                     strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
         opt = 1;
-	if (setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))
-	    == -1)
-	{
-	    fprintf(stderr, "CLI: Failed to set socket options: %s.\n",
-		    strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}    
-	if (bind(lsock, (struct sockaddr *)&s_in, sizeof(struct sockaddr_in))
-	    == -1)
-	{
-	    fprintf(stderr, "CLI: Failed to bind name to socket: %s.\n",
-		    strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
-	if (listen(lsock, 1) != 0) {
-	    fprintf(stderr, "CLI: Failed to listen on port %d: %s.\n",
-		    port, strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
+        if (setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))
+            == -1)
+        {
+            fprintf(stderr, "CLI: Failed to set socket options: %s.\n",
+                    strerror(errno));
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        if (bind(lsock, (struct sockaddr *)&s_in, sizeof(struct sockaddr_in))
+            == -1)
+        {
+            fprintf(stderr, "CLI: Failed to bind name to socket: %s.\n",
+                    strerror(errno));
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        if (listen(lsock, 1) != 0) {
+            fprintf(stderr, "CLI: Failed to listen on port %d: %s.\n",
+                    port, strerror(errno));
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
         WRITE_TO_SYNCH_FD;
-        
+
         socket_loop(event_fd, lsock);
-        
+
     } else if (lport != NULL) {
         /* local socket interface */
         remove(lport);
-	memset(&s_un, 0, sizeof(s_un));
-	s_un.sun_family = AF_UNIX;
-	strncpy(s_un.sun_path, lport, sizeof(s_un.sun_path));
-	s_un.sun_path[sizeof(s_un.sun_path) - 1] = '\0';
+        memset(&s_un, 0, sizeof(s_un));
+        s_un.sun_family = AF_UNIX;
+        strncpy(s_un.sun_path, lport, sizeof(s_un.sun_path));
+        s_un.sun_path[sizeof(s_un.sun_path) - 1] = '\0';
 
-	if ((lsock = socket(PF_UNIX, SOCK_STREAM, 0)) == -1) {
-	    fprintf(stderr, "CLI: Failed to create socket: %s.\n",
+        if ((lsock = socket(PF_UNIX, SOCK_STREAM, 0)) == -1) {
+            fprintf(stderr, "CLI: Failed to create socket: %s.\n",
                     strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
 
-	if (bind(lsock, (struct sockaddr *)&s_un, sizeof(struct sockaddr_un))
-	    == -1)
-	{
+        if (bind(lsock, (struct sockaddr *)&s_un, sizeof(struct sockaddr_un))
+            == -1)
+        {
             if (errno == EADDRINUSE) {
                 fprintf(stderr, "CLI: Failed to create local socket: "
                         "path \"%s\" already exists.\n", s_un.sun_path);
@@ -1381,18 +1382,18 @@ bflogic_init(struct bfaccess *_bfaccess,
                 fprintf(stderr, "CLI: Failed to bind name to socket: %s.\n",
                         strerror(errno));
             }
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}
-	if (listen(lsock, 1) != 0) {
-	    fprintf(stderr, "CLI: Failed to listen on local "
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        if (listen(lsock, 1) != 0) {
+            fprintf(stderr, "CLI: Failed to listen on local "
                     "socket \"%s\": %s.\n", s_un.sun_path, strerror(errno));
-	    bfaccess->exit(BF_EXIT_OTHER);
-	}	
-	free(lport);
+            bfaccess->exit(BF_EXIT_OTHER);
+        }
+        free(lport);
         WRITE_TO_SYNCH_FD;
-        
+
         socket_loop(event_fd, lsock);
-        
+
     } else {
         fprintf(stderr, "CLI: No port specified.\n");
         bfaccess->exit(BF_EXIT_OTHER);

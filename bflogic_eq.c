@@ -86,16 +86,16 @@ static char *
 strtrim(char s[])
 {
     char *p;
-    
+
     while (*s == ' ' || *s == '\t') {
-	s++;
+        s++;
     }
     if (*s == '\0') {
-	return s;
+        return s;
     }
     p = s + strlen(s) - 1;
     while ((*p == ' ' || *p == '\t') && p != s) {
-	p--;
+        p--;
     }
     *(p + 1) = '\0';
     return s;
@@ -139,8 +139,8 @@ finalise_equaliser(struct realtime_eq *eq,
     for (n = 0; n < n_bands; n++) {
         eq->freq[1+n] = bands[n];
     }
-    eq->freq[1+n] = (double)sample_rate / 2.0;                
-    
+    eq->freq[1+n] = (double)sample_rate / 2.0;
+
     memset(eq->mag, 0, band_count * sizeof(double));
     for (n = 0, i = 0; n < n_mag; n++) {
         while (mfreq[n] > eq->freq[i]) {
@@ -155,7 +155,7 @@ finalise_equaliser(struct realtime_eq *eq,
     }
     eq->mag[0] = eq->mag[1];
     eq->mag[band_count - 1] = eq->mag[band_count - 2];
-    
+
     memset(eq->phase, 0, band_count * sizeof(double));
     for (n = 0, i = 0; n < n_phase; n++) {
         while (pfreq[n] > eq->freq[i]) {
@@ -171,7 +171,7 @@ finalise_equaliser(struct realtime_eq *eq,
     for (n = 0; n < band_count; n++) {
         eq->freq[n] /= (double)sample_rate;
         eq->mag[n] = pow(10, eq->mag[n] / 20);
-        eq->phase[n] = eq->phase[n] / (180 * M_PI);           
+        eq->phase[n] = eq->phase[n] / (180 * M_PI);
     }
     eq->band_count = band_count;
     for (n = i = 0; n < 2; n++) {
@@ -279,7 +279,7 @@ bflogic_preinit(int *version_major,
     n_filters = _n_filters;
     *fork_mode = BF_FORK_PRIO_OTHER;
     bfevents->coeff_final = coeff_final;
-    
+
     memset(msg, 0, sizeof(msg));
     if ((equalisers = shmalloc(MAX_EQUALISERS * sizeof(struct realtime_eq)))
         == NULL)
@@ -407,7 +407,7 @@ bflogic_preinit(int *version_major,
                             if (bands[n-1] >= bands[n]) {
                                 fprintf(stderr, "EQ: Parse error: frequencies "
                                         "not sorted.\n");
-                                return -1;                            
+                                return -1;
                             }
                             token = get_config_token(&lexval);
                         }
@@ -435,7 +435,7 @@ bflogic_preinit(int *version_major,
                         {
                             fprintf(stderr, "EQ: Parse error: expected integer "
                                     "or string.\n");
-                            return -1;                            
+                            return -1;
                         }
                         if (token == BF_LEXVAL_STRING) {
                             for (n = 0; n < n_coeffs; n++) {
@@ -494,7 +494,7 @@ bflogic_preinit(int *version_major,
                 } else {
                     fprintf(stderr, "EQ: Parse error: unknown field \"%s\".\n",
                             lexval.field);
-                    return -1;                
+                    return -1;
                 }
             }
             break;
@@ -524,7 +524,7 @@ bflogic_preinit(int *version_major,
         }
         GET_TOKEN(BF_LEX_EOS, "expected end of statement (;).\n");
     }
-    
+
     for (n = 0; n < n_equalisers; n++) {
         for (i = 0; i < n_equalisers; i++) {
             if (i != n &&
@@ -544,22 +544,22 @@ bflogic_preinit(int *version_major,
         fprintf(stderr, "EQ: Failed to create pipe: %s.\n", strerror(errno));
         return -1;
     }
-    
+
     return 0;
 }
 
 int
 bflogic_init(struct bfaccess *_bfaccess,
-	     int _sample_rate,
-	     int _block_length,
-	     int _n_maxblocks,
-	     int _n_coeffs,
-	     const struct bfcoeff _coeffs[],
-	     const int _n_channels[2],
-	     const struct bfchannel *_channels[2],
-	     int _n_filters,
-	     const struct bffilter _filters[],
-	     int event_fd,
+             int _sample_rate,
+             int _block_length,
+             int _n_maxblocks,
+             int _n_coeffs,
+             const struct bfcoeff _coeffs[],
+             const int _n_channels[2],
+             const struct bfchannel *_channels[2],
+             int _n_filters,
+             const struct bffilter _filters[],
+             int event_fd,
              int synch_fd)
 {
     int n, maxblocks, command, eq_index, n_bands, i;
@@ -581,7 +581,7 @@ bflogic_init(struct bfaccess *_bfaccess,
         }
     }
     rbuf = emallocaligned(maxblocks * block_length * bfaccess->realsize);
-    
+
     for (n = 0; n < n_equalisers; n++) {
         equalisers[n].ifftplan =
             bfaccess->convolver_fftplan(log2_get(equalisers[n].taps), true,
@@ -713,7 +713,7 @@ bflogic_command(const char params[])
     params_copy = estrdup(params);
     cmd = strtrim(params_copy);
     coeff = -1;
-    
+
     /* <coeff> <mag | phase | info> <band>/<value>[,<band/value>, ...] */
     if (cmd[0] == '\"') {
         p = strchr(cmd + 1, '\"');
@@ -812,7 +812,7 @@ bflogic_command(const char params[])
                 bands[i] / (double)sample_rate < 1.01 * eq->freq[n])
             {
                 bands[i] /= (double)sample_rate;
-                if (command == CMD_CHANGE_MAGNITUDE) {                    
+                if (command == CMD_CHANGE_MAGNITUDE) {
                     values[i] = pow(10, values[i] / 20);
                 } else {
                     values[i] = values[i] / (180 * M_PI);
@@ -849,7 +849,7 @@ bflogic_command(const char params[])
             return -1;
         }
         break;
-    }       
+    }
     return 0;
 }
 
