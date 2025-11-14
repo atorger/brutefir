@@ -720,6 +720,7 @@ callback_process_thread(void *arg)
 {
     struct callback_process_thread_args a = *(struct callback_process_thread_args *)arg;
     ca->callback_pid = bf_getpid();
+    bf_set_thread_name("callback-io");
     callback_process(a.n_subdevs, a.subdevs, bfconf->blocking_io ? NULL : &a.wpid);
 }
 
@@ -1202,6 +1203,7 @@ dai_input(volatile struct debug_input dbg[],
 	}
 
         for (int n = 0; n < glob.n_devs[IN]; n++) {
+            // if poll mode or bad alignment, always poll for data
             struct subdev *sd = glob.dev[IN][n];
             if (sd->uses_clock && !sd->uses_callback && !FD_ISSET(sd->fd, &readfds) &&
                 (glob.input_poll_mode || sd->bad_alignment))
