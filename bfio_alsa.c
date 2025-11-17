@@ -15,22 +15,22 @@
 #include <alsa/asoundlib.h>
 #undef index
 
-#include "defs.h"
 #include "log2.h"
 #include "bit.h"
 #include "compat.h"
-#include "emalloc.h"
 #define IS_BFIO_MODULE
 #include "bfmod.h"
 #include "inout.h"
+
+#define DECONST(type, var) ((type)(uintptr_t)(const void *)(var))
 
 #define ERRORSIZE 1024
 
 struct alsa_access_state {
     snd_pcm_t *handle;
-    bool_t isinterleaved;
-    bool_t ismmap;
-    bool_t ignore_xrun;
+    bool isinterleaved;
+    bool ismmap;
+    bool ignore_xrun;
     int sw_period_size;
     int device_period_size;
     int sample_size;
@@ -39,7 +39,7 @@ struct alsa_access_state {
     void **bufs;
     int *channel_selection;
     char *device;
-    bool_t restart;
+    bool restart;
 
     struct timespec frame_ts;
     int64_t frame_count;
@@ -47,8 +47,8 @@ struct alsa_access_state {
 
 struct settings {
     snd_pcm_access_t forced_access_mode;
-    bool_t force_access;
-    bool_t ignore_xrun;
+    bool force_access;
+    bool ignore_xrun;
     char *device;
     char *timer_source;
 };
@@ -58,8 +58,8 @@ static struct {
     int n_handles[2];
     struct alsa_access_state fd2as[FD_SETSIZE];
     snd_pcm_t *base_handle;
-    bool_t debug;
-    bool_t link_handles;
+    bool debug;
+    bool link_handles;
     snd_output_t *out;
 } glob = {
     .handles = {},
@@ -99,7 +99,7 @@ debug_dump(snd_pcm_t *handle)
 }
 */
 
-static bool_t
+static bool
 set_params(snd_pcm_t *handle,
            const struct settings *settings,
 	   int sample_format,
@@ -201,15 +201,15 @@ set_params(snd_pcm_t *handle,
     } else {
         const struct {
             snd_pcm_access_t mode;
-            bool_t is_interleaved;
-            bool_t is_mmap;
+            bool is_interleaved;
+            bool is_mmap;
         } modes[4] = {
             { SND_PCM_ACCESS_MMAP_INTERLEAVED, true, true },
             { SND_PCM_ACCESS_MMAP_NONINTERLEAVED, false, true },
             { SND_PCM_ACCESS_RW_INTERLEAVED, true, false },
             { SND_PCM_ACCESS_RW_NONINTERLEAVED, false, true }
         };
-        bool_t found_mode = false;
+        bool found_mode = false;
         for (int i = 0; i < 4; i++) {
             if (snd_pcm_hw_params_set_access(handle, params, modes[i].mode) >= 0) {
                 *isinterleaved = modes[i].is_interleaved;
@@ -337,7 +337,7 @@ bfio_preinit(int *version_major,
              struct sched_param *callback_sched,
              int _debug)
 {
-    static bool_t has_been_called = false;
+    static bool has_been_called = false;
 
     const int ver = *version_major;
     *version_major = BF_VERSION_MAJOR;
@@ -371,7 +371,7 @@ bfio_preinit(int *version_major,
                 return NULL;
             }
             GET_TOKEN(BF_LEXVAL_STRING, "expected string.\n");
-            settings->device = estrdup(lexval.string);
+            settings->device = strdup(lexval.string);
         } else if (strcmp(lexval.field, "ignore_xrun") == 0) {
             GET_TOKEN(BF_LEXVAL_BOOLEAN, "expected boolean value.\n");
             settings->ignore_xrun = lexval.boolean;
@@ -492,19 +492,19 @@ bfio_init(void *params,
     as->sample_size = sample_size;
     as->open_channels = open_channels;
     as->used_channels = used_channels;
-    as->device = estrdup(settings->device);
+    as->device = strdup(settings->device);
     as->frame_count = -1;
 
     if (*isinterleaved) {
         as->bufs = NULL;
     } else {
-        as->bufs = emalloc(open_channels * sizeof(void *));
+        as->bufs = malloc(open_channels * sizeof(void *));
         memset(as->bufs, 0, open_channels * sizeof(void *));
-        as->channel_selection = emalloc(used_channels * sizeof(int));
+        as->channel_selection = malloc(used_channels * sizeof(int));
 	memcpy(as->channel_selection, channel_selection, used_channels * sizeof(int));
     }
-    efree(settings->device);
-    efree(settings);
+    free(settings->device);
+    free(settings);
     return pollfd.fd;
 }
 
