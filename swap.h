@@ -1,44 +1,59 @@
 /*
- * (c) Copyright 1999, 2002 -- Anders Torger
+ * (c) Copyright 1999, 2002, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#ifndef _SWAP_H_
-#define _SWAP_H_
+#ifndef SWAP_H_
+#define SWAP_H_
 
 #include <inttypes.h>
 
-#ifdef __LITTLE_ENDIAN__
-
-#include <netinet/in.h> 
-
-#define SWAP32(x) ntohl((uint32_t)(x))
-#define SWAP16(x) ntohs((uint16_t)(x))
-
+static inline uint16_t
+bit16_swap_generic(uint16_t v)
+{
+    return (((unsigned)v & 0xFF00u) >> 8u) | (((unsigned)v & 0x00FFu) << 8u);
+}
+static inline uint16_t
+bit16_swap(uint16_t v)
+{
+#if __has_builtin(__builtin_bswap16)
+    return __builtin_bswap16(v);
+#else
+    return bit16_swap_generic(v);
 #endif
-#ifdef __BIG_ENDIAN__
+}
 
-#define SWAP16(x)                                                              \
-    (((((uint16_t)(x)) & 0xff00U) >> 8) |                                      \
-     ((((uint16_t)(x)) & 0x00ffU) << 8))
-
-#define SWAP32(x)                                                              \
-    (((((uint32_t)(x)) & 0xff000000UL) >> 24) |                                \
-     ((((uint32_t)(x)) & 0x00ff0000UL) >>  8) |                                \
-     ((((uint32_t)(x)) & 0x0000ff00UL) <<  8) |                                \
-     ((((uint32_t)(x)) & 0x000000ffUL) << 24))
-
+static inline uint32_t
+bit32_swap_generic(uint32_t v)
+{
+    return bit16_swap((uint16_t)((v & 0xFFFF0000u ) >> 16u)) |
+        ((uint32_t)bit16_swap((uint16_t)(v & 0x0000FFFFu)) << 16u);
+}
+static inline uint32_t
+bit32_swap(uint32_t v)
+{
+#if __has_builtin(__builtin_bswap32)
+    return __builtin_bswap32(v);
+#else
+    return bit32_swap_generic(v);
 #endif
+}
 
-#define SWAP64(x)                                                              \
-    (((((uint64_t)(x)) & 0xff00000000000000ULL) >> 56) |                       \
-     ((((uint64_t)(x)) & 0x00ff000000000000ULL) >> 40) |                       \
-     ((((uint64_t)(x)) & 0x0000ff0000000000ULL) >> 24) |                       \
-     ((((uint64_t)(x)) & 0x000000ff00000000ULL) >> 8)  |                       \
-     ((((uint64_t)(x)) & 0x00000000ff000000ULL) << 8)  |                       \
-     ((((uint64_t)(x)) & 0x0000000000ff0000ULL) << 24) |                       \
-     ((((uint64_t)(x)) & 0x000000000000ff00ULL) << 40) |                       \
-     ((((uint64_t)(x)) & 0x00000000000000ffULL) << 56))
+static inline uint64_t
+bit64_swap_generic(uint64_t v)
+{
+    return bit32_swap((uint32_t)((v & 0xFFFFFFFF00000000u ) >> 32u)) |
+        ((uint64_t)bit32_swap((uint32_t)(v & 0xFFFFFFFFu)) << 32u);
+}
+static inline uint64_t
+bit64_swap(uint64_t v)
+{
+#if __has_builtin(__builtin_bswap64)
+    return __builtin_bswap64(v);
+#else
+    return bit64_swap_generic(v);
+#endif
+}
 
 #endif
