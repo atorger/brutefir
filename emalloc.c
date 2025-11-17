@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2004, 2009, 2016 -- Anders Torger
+ * (c) Copyright 2001 - 2004, 2009, 2016, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "defs.h"
+#include "sysarch.h"
 #include "emalloc.h"
 
 static void (*exit_func)(int) = NULL;
@@ -25,7 +25,7 @@ static int exit_status = 1;
 static void
 check_avail(size_t alloc)
 {
-#ifdef __OS_LINUX__
+#ifdef ARCH_OS_LINUX
     int memtotal, memfree, buffers, cached, allocsize, fill;
     FILE *stream;
     char s[100];
@@ -61,7 +61,7 @@ check_avail(size_t alloc)
                 "exiting\n", fill);
         EXIT_PROGRAM;
     }
-#endif    
+#endif
 }
 
 void *
@@ -74,32 +74,7 @@ emallocaligned(size_t size)
         return NULL;
     }
     check_avail(size);
-#if defined(__OS_LINUX__)
-#if (__GLIBC__ < 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 3)
-    /* use old memalign, posix_memalign may be buggy in these glibc versions */
-    p = memalign(ALIGNMENT, size < ALIGNMENT ? ALIGNMENT : size);
-    err = !p;
-#else
     err = posix_memalign(&p, ALIGNMENT, size < ALIGNMENT ? ALIGNMENT : size);
-#endif
-#elif defined(__OS_FREEBSD__)
-    if (size < getpagesize()) {
-        size = getpagesize();
-    }
-    if (ALIGNMENT > size) {
-        fprintf(stderr,
-                "ALIGNMENT (%d) is larger than the pagesize (%d), aborting.\n"
-                "  Recompile with a smaller alignment.\n",
-                (int)ALIGNMENT, (int)getpagesize());
-        EXIT_PROGRAM;
-    }
-    p = malloc(size);
-    err = !p;
-#else
-    p = memalign(ALIGNMENT, size < ALIGNMENT ? ALIGNMENT : size);
-    err = !p;
-#endif
-    
     if (err != 0) {
 	PRINT_MESSAGE;
 	EXIT_PROGRAM;
