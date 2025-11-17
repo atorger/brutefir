@@ -6,9 +6,9 @@
  */
 %{
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
   
-#include "defs.h"
 #include "bfconf_grammar.h"
 
 int lexlineno = 0;

@@ -9,7 +9,6 @@
 
 #include <stdio.h>
 
-#include "defs.h"
 #include "bfmod.h"
 
 #define EOS     BF_LEX_EOS /* end of statement (;) */
