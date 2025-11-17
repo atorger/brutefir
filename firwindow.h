@@ -4,10 +4,8 @@
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#ifndef _FIRWINDOW_H_
-#define _FIRWINDOW_H_
-
-#include "defs.h"
+#ifndef FIRWINDOW_H_
+#define FIRWINDOW_H_
 
 /****
  * firwindow_kaiser()

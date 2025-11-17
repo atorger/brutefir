@@ -41,7 +41,7 @@ i_zero(double x)
         sum += a * a;
         n += 1.0;
         /* either 'sum' will reach +inf or 'a' zero... */
-    } while (a != 0.0 && finite(sum));
+    } while (a != 0.0 && isfinite(sum));
     return sum;
 }
 
