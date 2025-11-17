@@ -1,138 +1,136 @@
 /*
- * (c) Copyright 2001, 2004 - 2006 -- Anders Torger
+ * (c) Copyright 2001, 2004 - 2006, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#ifndef _BIT_H_
-#define _BIT_H_
+#ifndef BIT_H_
+#define BIT_H_
 
+#include <stdbool.h>
 #include <inttypes.h>
 
-#include "defs.h"
+#include "sysarch.h"
 
-static inline bool_t
-bit_isset(const uint32_t bitset[],
-	  int pos)
+static inline bool
+bit32_isset(const uint32_t bits[],
+            const unsigned position)
 {
-    int n = pos >> 5;
-    return bitset[n] & 1 << (pos - (n << 5));
+    const unsigned i = position >> 5u;
+    return !!(bits[i] & (uint32_t)1u << (position & 0x1Fu));
 }
 
 static inline void
-bit_set(uint32_t bitset[],
-	int pos)
+bit32_set(uint32_t bits[],
+          const unsigned position)
 {
-    int n = pos >> 5;
-    bitset[n] = bitset[n] | 1 << (pos - (n << 5));
+    const unsigned i = position >> 5u;
+    bits[i] = bits[i] | (uint32_t)1u << (position & 0x1Fu);
 }
 
 static inline void
-bit_clr(uint32_t bitset[],
-	int pos)
+bit32_clr(uint32_t bits[],
+          const unsigned position)
 {
-    int n = pos >> 5;
-    bitset[n] = bitset[n] & ~(1 << (pos - (n << 5)));
+    const unsigned i = position >> 5u;
+    bits[i] = bits[i] & ~((uint32_t)1u << (position & 0x1Fu));
 }
 
-static inline bool_t
-bit_isset_volatile(volatile const uint32_t bitset[],
-                   int pos)
+static inline bool
+bit32_isset_volatile(volatile const uint32_t bits[],
+                     const unsigned position)
 {
-    int n = pos >> 5;
-    return bitset[n] & 1 << (pos - (n << 5));
-}
-
-static inline void
-bit_set_volatile(volatile uint32_t bitset[],
-                 int pos)
-{
-    int n = pos >> 5;
-    bitset[n] = bitset[n] | 1 << (pos - (n << 5));
+    const unsigned i = position >> 5u;
+    return !!(bits[i] & (uint32_t)1u << (position & 0x1Fu));
 }
 
 static inline void
-bit_clr_volatile(volatile uint32_t bitset[],
-                 int pos)
+bit32_set_volatile(volatile uint32_t bits[],
+                     const unsigned position)
 {
-    int n = pos >> 5;
-    bitset[n] = bitset[n] & ~(1 << (pos - (n << 5)));
+    const unsigned i = position >> 5u;
+    bits[i] = bits[i] | (uint32_t)1u << (position & 0x1Fu);
 }
 
-#if defined(__ARCH_IA32__)
-
-static inline int
-bit_bsf(uint32_t n)
+static inline void
+bit32_clr_volatile(volatile uint32_t bits[],
+                   const unsigned position)
 {
-    int r;
-    __asm__ volatile ("bsfl %1,%0\n\t" : "=r" (r) : "g" (n));
-    return r;
+    const unsigned i = position >> 5u;
+    bits[i] = bits[i] & ~((uint32_t)1u << (position & 0x1Fu));
 }
 
-#else
-
-static inline int
-bit_bsf(uint32_t n)
+static inline unsigned
+bit32_bsf_generic(const uint32_t value)
 {
-    static const int tab[256] = {
-	0, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	6, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	7, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	6, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
-	4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0
+    static const unsigned table[256] = {
+        0, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        6, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        7, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        6, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        5, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
+        4, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0
     };
-    if ((n & 0x0000FFFF) != 0) {
-	if ((n & 0x000000FF) != 0) {
-	    return tab[n & 0x000000FF];
-	} else {
-	    return 8 + tab[(n & 0x0000FF00) >> 8];
-	}
+    if ((value & 0x0000FFFFu) != 0) {
+       if ((value & 0x000000FFu) != 0) {
+           return table[value & 0x000000FFu];
+       } else {
+           return 8u + table[(value & 0x0000FF00u) >> 8u];
+       }
     } else {
-	if ((n & 0x00FF0000) != 0) {
-	    return 16 + tab[(n & 0x00FF0000) >> 16];
-	} else {
-	    return 24 + tab[(n & 0xFF000000) >> 24];
-	}
-    }    
+       if ((value & 0x00FF0000u) != 0) {
+           return 16u + table[(value & 0x00FF0000u) >> 16u];
+       } else {
+           return 24u + table[(value & 0xFF000000u) >> 24u];
+       }
+    }
 }
 
+/* Note on bit scans below: if integer is zero the return value is undefined! */
+static inline unsigned
+bit32_bsf(const uint32_t value)
+{
+#if ARCH_SIZEOF_INT >= 4 && __has_builtin(__builtin_ctz)
+    return (unsigned)__builtin_ctz((unsigned)value);
+#else
+    return bit32_bsf_generic(value);
 #endif
+}
 
 static inline int
-bit_find(const uint32_t bitset[],
-	 int start,
-	 int end)
+bit32_find(const uint32_t bits[],
+           const unsigned from,
+           const unsigned to)
 {
-    uint32_t b;
-    int n;
+    unsigned i;
+    uint32_t bb;
 
-    if (end < start) {
+    if ((const int)to < (const int)from) {
         return -1;
     }
-    if ((b = bitset[start >> 5] >> (start & 0x1F)) != 0) {
-        if ((n = bit_bsf(b) + start) > end) {
-            return -1;
-        }
-        return n;
+    if ((bb = bits[from >> 5u] >> (from & 0x1Fu)) != 0) {
+	if ((i = bit32_bsf(bb) + from) > to) {
+	    return -1;
+	}
+	return (int)i;
     }
-    for (n = (start >> 5) + 1; n <= end >> 5; n++) {
-        if (bitset[n] != 0) {
-            if ((n = bit_bsf(bitset[n]) + (n << 5)) > end) {
-                return -1;
-            }
-            return n;
-        }
+    for (i = (from >> 5u) + 1; i <= (to >> 5u); i++) {
+	if (bits[i] != 0) {
+	    if ((i = bit32_bsf(bits[i]) + (i << 5u)) > to) {
+		return -1;
+	    }
+	    return (int)i;
+	}
     }
     return -1;
 }
