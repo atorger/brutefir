@@ -30,8 +30,8 @@ struct readstate {
     off_t filesize;
     off_t skipbytes;
     off_t curpos;
-    bool_t loop;
-    bool_t use_text;
+    bool loop;
+    bool use_text;
     struct {
         int dupfd;
         int filefd;
@@ -44,7 +44,7 @@ struct readstate {
 
 struct writestate {
     int open_channels;
-    bool_t use_text;
+    bool use_text;
     struct {
         int bufsize;
         int offset;
@@ -59,15 +59,15 @@ static struct readstate *readstate[FD_SETSIZE];
 static struct writestate *writestate[FD_SETSIZE];
 static fd_set fds[2];
 static int fdmax[2] = { -1, -1 };
-static bool_t debug = false;
+static bool debug = false;
 static int outtext_len;
 static int read_ready_fd = -1;
 
 struct settings {
     off_t skipbytes;
-    bool_t append;
-    bool_t loop;
-    bool_t text;
+    bool append;
+    bool loop;
+    bool text;
     char *path;
 };
 
@@ -162,18 +162,18 @@ bfio_preinit(int *version_major,
             read_ready_fd = dummypipe[0];
         }
         if (*sample_format == BF_SAMPLE_FORMAT_AUTO) {
-#ifdef __LITTLE_ENDIAN__
+#ifdef ARCH_LITTLE_ENDIAN
             *sample_format = BF_SAMPLE_FORMAT_FLOAT64_LE;
 #endif
-#ifdef __BIG_ENDIAN__
+#ifdef ARCH_BIG_ENDIAN
             *sample_format = BF_SAMPLE_FORMAT_FLOAT64_BE;
 #endif
         }
         switch (*sample_format) {
-#ifdef __LITTLE_ENDIAN__
+#ifdef ARCH_LITTLE_ENDIAN
         case BF_SAMPLE_FORMAT_FLOAT64_LE:
 #endif
-#ifdef __BIG_ENDIAN__
+#ifdef ARCH_BIG_ENDIAN
         case BF_SAMPLE_FORMAT_FLOAT64_BE:
 #endif
             break;
@@ -215,6 +215,10 @@ bfio_init(void *params,
     struct readstate *rs;
     struct stat buf;
     int fd, mode;
+    char s_[128];
+
+    snprintf(s_, sizeof(s_), OUTTEXT_FORMAT, 1.0);
+    outtext_len = strlen(s_);
 
     settings = (struct settings *)params;
     *device_period_size = 0; 
@@ -601,17 +605,4 @@ bfio_stop(int io)
             close(fd);
         }
     }
-}
-
-void
-do_init(void);
-void __attribute__((constructor))
-do_init(void)
-{
-    char s[1024];
-    
-    memset(readstate, 0, sizeof(readstate));
-    memset(fds, 0, sizeof(fds));
-    sprintf(s, OUTTEXT_FORMAT, 1.0);
-    outtext_len = strlen(s);
 }

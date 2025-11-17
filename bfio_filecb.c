@@ -4,6 +4,7 @@
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +24,6 @@
 
 #define IS_BFIO_MODULE
 #include "bfmod.h"
-#include "defs.h"
 #include "inout.h"
 
 struct file {
@@ -33,13 +33,13 @@ struct file {
     int offset;
     int size;
     uint8_t *buf;
-    bool_t complete;
+    bool complete;
     void *state;
 };
 
 static struct file *files[FD_SETSIZE];
 static int n_files;
-static bool_t debug = false;
+static bool debug = false;
 static pthread_t pthread;
 static int period_size;
 static int (*process_cb)(void **states[2],
@@ -50,7 +50,7 @@ static int (*process_cb)(void **states[2],
 
 struct settings {
     off_t skipbytes;
-    bool_t append;
+    bool append;
     char *path;
 };
 
@@ -356,12 +356,4 @@ void
 bfio_synch_stop(void)
 {
     pthread_cancel(pthread);
-}
-
-void
-do_init(void);
-void __attribute__((constructor))
-do_init(void)
-{
-    memset(files, 0, sizeof(files));
 }
