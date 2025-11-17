@@ -63,9 +63,9 @@ REAL2RAW_NAME(void *_rawbuf,
 	      void *_realbuf,
 	      int bits,
 	      int bytes,
-	      bool_t isfloat,
+	      bool isfloat,
 	      int spacing,
-	      bool_t swap,
+	      bool swap,
 	      int n_samples,
 	      struct bfoverflow *overflow REAL2RAW_EXTRA_PARAMS)
 {
@@ -91,7 +91,7 @@ REAL2RAW_NAME(void *_rawbuf,
                 for (n = i = 0; n < n_samples; n++, i += spacing) {
                     REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
                     REAL_OVERFLOW_UPDATE;
-                    rawbuf->u32[i] = SWAP32(realbuf->u32[n]);
+                    rawbuf->u32[i] = bit32_swap(realbuf->u32[n]);
                 }
             } else {
                 for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -107,7 +107,7 @@ REAL2RAW_NAME(void *_rawbuf,
                     REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
                     REAL_OVERFLOW_UPDATE;
                     sample.r64[0] = (double)realbuf->r32[n];
-                    rawbuf->u64[i] = SWAP64(sample.u64[0]);
+                    rawbuf->u64[i] = bit64_swap(sample.u64[0]);
                 }
             } else {
                 for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -128,7 +128,7 @@ REAL2RAW_NAME(void *_rawbuf,
                     REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
                     REAL_OVERFLOW_UPDATE;
                     sample.r32[0] = (float)realbuf->r64[n];
-                    rawbuf->u32[i] = SWAP32(sample.u32[0]);
+                    rawbuf->u32[i] = bit32_swap(sample.u32[0]);
                 }
             } else {
                 for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -143,7 +143,7 @@ REAL2RAW_NAME(void *_rawbuf,
                 for (n = i = 0; n < n_samples; n++, i += spacing) {
                     REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
                     REAL_OVERFLOW_UPDATE;
-                    rawbuf->u64[i] = SWAP64(realbuf->u64[n]);
+                    rawbuf->u64[i] = bit64_swap(realbuf->u64[n]);
                 }
             } else {
                 for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -178,7 +178,7 @@ REAL2RAW_NAME(void *_rawbuf,
             for (n = i = 0; n < n_samples; n++, i += spacing) {
                 REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
                 sample.i16[0] = (int16_t)REAL2INT_CALL;
-                rawbuf->u16[i] = SWAP16(sample.u16[0]);
+                rawbuf->u16[i] = bit16_swap(sample.u16[0]);
             }
         } else {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -189,7 +189,7 @@ REAL2RAW_NAME(void *_rawbuf,
 	break;
     case 3:
 	spacing = spacing * 3 - 3;
-#ifdef __BIG_ENDIAN__
+#ifdef ARCH_BIG_ENDIAN
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
                 REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
@@ -208,7 +208,7 @@ REAL2RAW_NAME(void *_rawbuf,
             }
         }
 #endif        
-#ifdef __LITTLE_ENDIAN__
+#ifdef ARCH_LITTLE_ENDIAN
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
                 REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
@@ -233,7 +233,7 @@ REAL2RAW_NAME(void *_rawbuf,
             for (n = i = 0; n < n_samples; n++, i += spacing) {
                 REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
                 sample.i32[0] = REAL2INT_CALL;
-                rawbuf->u32[i] = SWAP32(sample.u32[0]);
+                rawbuf->u32[i] = bit32_swap(sample.u32[0]);
             }
         } else {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
