@@ -4,6 +4,7 @@
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -14,8 +15,6 @@
 
 #include <jack/jack.h>
 
-#include "defs.h"
-#include "emalloc.h"
 #define IS_BFIO_MODULE
 #include "bfmod.h"
 #include "inout.h"
@@ -31,15 +30,17 @@ struct jack_state {
 #define DEFAULT_CLIENTNAME "brutefir"
 #define DEFAULT_JACK_CB_THREAD_PRIORITY 5
 
+typedef uintptr_t wordbool_t;
+
 static struct {
-    bool_t debug;
-    volatile bool_t stopped;
-    volatile bool_t has_started;
+    volatile wordbool_t stopped;
+    volatile wordbool_t has_started;
+    bool debug;
     struct jack_state *handles[2][BF_MAXCHANNELS];
     int expected_priority;
     void **states[2];
     int n_handles[2];
-    bool_t hasio[2];
+    bool hasio[2];
     jack_client_t *client;
     char *client_name;
     int (*process_cb)(void **_states[2],
@@ -48,14 +49,14 @@ static struct {
                       int count,
                       int event);
 } glob = {
-    .debug = false,
     .stopped = false,
     .has_started = false,
+    .debug = false,
     .handles = {{NULL}},
     .expected_priority = -1,
     .states = {NULL, NULL},
     .n_handles = {0, 0},
-    .hasio = {0, 0},
+    .hasio = {false, false},
     .client = NULL,
     .client_name = NULL,
     .process_cb = NULL
@@ -76,7 +77,7 @@ error_callback(const char *msg)
     }
     if (glob.has_started) {
         glob.stopped = true;
-        glob.process_cb(glob.states, glob.n_handles, NULL, 0, BF_CALLBACK_EVENT_ERROR);
+        glob.process_cb(NULL, 0, NULL, 0, BF_CALLBACK_EVENT_ERROR);
     }
 }
 
@@ -85,7 +86,7 @@ shutdown_callback(void *arg)
 {
     fprintf(stderr, "JACK I/O: JACK daemon shut down.\n");
     glob.stopped = true;
-    glob.process_cb(glob.states, glob.n_handles, NULL, 0, BF_CALLBACK_EVENT_ERROR);
+    glob.process_cb(NULL, 0, NULL, 0, BF_CALLBACK_EVENT_ERROR);
 }
 
 static int
@@ -195,7 +196,7 @@ process_callback(jack_nframes_t n_frames,
     return 0;
 }
 
-static bool_t
+static bool
 global_init(void)
 {
     jack_status_t status;
@@ -275,7 +276,7 @@ bfio_preinit(int *version_major,
              int *uses_sample_clock,
              int *callback_sched_policy,
              struct sched_param *callback_sched_param,
-             int _debug)
+             int debug)
 {
     struct jack_state *js;
 
@@ -286,7 +287,7 @@ bfio_preinit(int *version_major,
         return NULL;
     }
 
-    glob.debug = !!_debug;
+    glob.debug = !!debug;
 
     if (*sample_format == BF_SAMPLE_FORMAT_AUTO) {
 #ifdef ARCH_LITTLE_ENDIAN
@@ -339,8 +340,7 @@ bfio_preinit(int *version_major,
         }
 #endif
     }
-    js = emalloc(sizeof(struct jack_state));
-    memset(js, 0, sizeof(struct jack_state));
+    js = calloc(1, sizeof(struct jack_state));
     js->n_channels = open_channels;
 
     int token;
@@ -354,12 +354,12 @@ bfio_preinit(int *version_major,
             for (int n = 0; n < open_channels; n++) {
                 GET_TOKEN(BF_LEXVAL_STRING, "expected string.\n");
                 if (lexval.string[0] != '\0') {
-                    js->dest_name[n] = estrdup(lexval.string);
+                    js->dest_name[n] = strdup(lexval.string);
                 }
                 if ((token = get_config_token(&lexval)) == BF_LEX_SLASH) {
                     GET_TOKEN(BF_LEXVAL_STRING, "expected string.\n");
                     if (lexval.string[0] != '\0') {
-                        js->local_port_name[n] = estrdup(lexval.string);
+                        js->local_port_name[n] = strdup(lexval.string);
                     }
                     token = get_config_token(&lexval);
                 }
@@ -385,7 +385,7 @@ bfio_preinit(int *version_major,
                 return NULL;
             }
             if (glob.client_name == NULL) {
-                glob.client_name = estrdup(lexval.string);
+                glob.client_name = strdup(lexval.string);
             }
             GET_TOKEN(BF_LEX_EOS, "expected end of statement (;).\n");
         } else if (strcmp(lexval.field, "priority") == 0) {
@@ -406,7 +406,7 @@ bfio_preinit(int *version_major,
     }
     if (glob.client == NULL) {
         if (glob.client_name == NULL) {
-            glob.client_name = estrdup(DEFAULT_CLIENTNAME);
+            glob.client_name = strdup(DEFAULT_CLIENTNAME);
         }
         if (!global_init()) {
             return NULL;
@@ -498,7 +498,7 @@ bfio_init(void *params,
         char longname[1024];
         snprintf(longname, sizeof(longname), "%s:%s", glob.client_name, name);
         longname[sizeof(longname) - 1] = '\0';
-        js->port_name[n] = estrdup(longname);
+        js->port_name[n] = strdup(longname);
     }
 
     states_[io][glob.n_handles[io]] = callback_state;
