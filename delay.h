@@ -4,17 +4,15 @@
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#ifndef _DELAY_H_
-#define _DELAY_H_
+#ifndef DELAY_H_
+#define DELAY_H_
 
-#include "defs.h"
-
-typedef struct _delaybuffer_t_ delaybuffer_t;
+typedef struct delaybuffer_t_ delaybuffer_t;
 
 /* optional_target_buf has sample_spacing == 1 */
 void
 delay_update(delaybuffer_t *db,
-	     void *buf,	     
+	     void *buf,
 	     int sample_size,
 	     int sample_spacing,
 	     int delay,
@@ -34,7 +32,7 @@ delay_subsample_update(void *buf,
                        void *rest,
                        int subdelay);
 
-bool_t
+bool
 delay_subsample_init(int step_count,
                      int half_filter_length,
                      double kaiser_beta,

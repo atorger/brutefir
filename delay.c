@@ -10,10 +10,10 @@
 #include <inttypes.h>
 #include <math.h>
 
-#include "defs.h"
 #include "pinfo.h"
 #include "delay.h"
 #include "bfrun.h"
+#include "compat.h"
 #include "emalloc.h"
 #include "firwindow.h"
 #include "convolver.h"
@@ -26,7 +26,7 @@ static int subdelay_step_count;
 static int subdelay_filterblock_size;
 static int subdelay_fragment_size;
 
-struct _delaybuffer_t_ {
+struct delaybuffer_t_ {
     int fragsize;    /* fragment size */
     int maxdelay;    /* maximum allowable delay, or negative if delay cannot be
 			changed in runtime */
@@ -440,7 +440,7 @@ delay_subsample_update(void *buf,
     /*fprintf(stderr, "%" PRIu64 "\n", t2 / (uint64_t)bfconf->cpu_mhz);*/
 }
 
-bool_t
+bool
 delay_subsample_init(int step_count,
                      int half_filter_length,
                      double kaiser_beta,
