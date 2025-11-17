@@ -9,7 +9,6 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "defs.h"
 #include "dither.h"
 #include "emalloc.h"
 #include "pinfo.h"
@@ -61,7 +60,7 @@ lfsr113_init(uint32_t state[4])
     lfsr113(state);
 }
 
-bool_t
+bool
 dither_init(const int n_channels,
 	    const int sample_rate,
             const int realsize_,

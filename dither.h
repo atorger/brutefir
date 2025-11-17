@@ -9,7 +9,6 @@
 
 #include <inttypes.h>
 
-#include "defs.h"
 #include "dai.h"
 #include "bfmod.h"
 #include "convolver.h"
@@ -57,7 +56,7 @@ dither_preloop_real2int_hp_tpdf(struct dither_state *state,
 #undef REALSIZE
 #undef real_t
 
-bool_t
+bool
 dither_init(int n_channels,
 	    int sample_rate,
             int realsize,
