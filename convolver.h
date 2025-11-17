@@ -9,7 +9,6 @@
 
 #include <inttypes.h>
 
-#include "defs.h"
 #include "bfmod.h"
 #include "dai.h"
 
@@ -90,7 +89,7 @@ void
 convolver_cbuf2raw(void *cbuf,
 		   void *outbuf,
 		   struct buffer_format *bf,
-		   bool_t apply_dither,
+		   bool apply_dither,
 		   void *dither_state,
 		   struct bfoverflow *overflow);
 
@@ -114,7 +113,7 @@ convolver_runtime_coeffs2cbuf(void *src,
 
 
 /* Make a quick sanity check */
-bool_t
+bool
 convolver_verify_cbuf(void *cbufs[],
                       int n_cbufs);
 
@@ -146,7 +145,7 @@ convolver_td_convolve(td_conv_t *tdc,
                       void *overlap_block);
 
 /* Initialise convolver. Some convolvers may ignore 'config_filename' */
-bool_t
+bool
 convolver_init(const char config_filename[],
 	       int length,
                int realsize);

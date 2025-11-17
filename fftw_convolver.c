@@ -1,20 +1,16 @@
 /*
- * (c) Copyright 2001 - 2004, 2006, 2009, 2013 -- Anders Torger
+ * (c) Copyright 2001 - 2004, 2006, 2009, 2013, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#include "defs.h"
-
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <inttypes.h>
 #include <math.h>
-#ifdef __OS_SUNOS__
-#include <ieeefp.h>
-#endif
 
 #include <fftw3.h>
 
@@ -29,7 +25,6 @@
 #include "asmprot.h"
 #include "pinfo.h"
 #include "inout.h"
-#include "timestamp.h"
 #include "numunion.h"
 
 #define ifftplans fftplan_table[1][0]
@@ -47,7 +42,7 @@ static int n_fft, n_fft2, fft_order;
 #define OPT_CODE_SSE2  2
 static int opt_code;
 
-#if defined(__ARCH_IA32__) || defined(__ARCH_X86_64__)
+#if defined(ARCH_X86) || defined(ARCH_X86_64)
 static inline void
 cpuid(uint32_t op,
       uint32_t *eax,
@@ -55,8 +50,7 @@ cpuid(uint32_t op,
       uint32_t *ecx,
       uint32_t *edx)
 {
-    asm volatile ("cpuid" : "=a" (*eax), "=b" (*ebx), "=c" (*ecx),
-		  "=d" (*edx) : "a" (op));
+    __asm__ __volatile__ ("cpuid" : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx) : "a" (op));
 }
 static void
 decide_opt_code(void)
@@ -96,8 +90,8 @@ decide_opt_code(void)
 
 static void *
 create_fft_plan(int length,
-                bool_t inplace,
-                bool_t invert)
+                bool inplace,
+                bool invert)
 {
     void *plan, *buf[2];
 
@@ -482,7 +476,7 @@ void
 convolver_cbuf2raw(void *cbuf,
 		   void *outbuf,
 		   struct buffer_format *bf,
-		   bool_t apply_dither,
+		   bool apply_dither,
 		   void *dither_state,
 		   struct bfoverflow *overflow)
 {
@@ -539,7 +533,7 @@ convolver_coeffs2cbuf(void *coeffs,
         for (n = 0; n < len; n++) {
             ((float *)rcoeffs)[n_fft2 + n] = ((float *)coeffs)[n] *
                 (float)scale;
-            if (!finite((double)((float *)rcoeffs)[n_fft2 + n])) {
+            if (!isfinite((double)((float *)rcoeffs)[n_fft2 + n])) {
                 fprintf(stderr, "NaN or Inf value among coefficients.\n");
                 return NULL;
             }
@@ -549,7 +543,7 @@ convolver_coeffs2cbuf(void *coeffs,
     } else {
         for (n = 0; n < len; n++) {
             ((double *)rcoeffs)[n_fft2 + n] = ((double *)coeffs)[n] * scale;
-            if (!finite(((double *)rcoeffs)[n_fft2 + n])) {
+            if (!isfinite(((double *)rcoeffs)[n_fft2 + n])) {
                 fprintf(stderr, "NaN or Inf value among coefficients.\n");
                 return NULL;
             }
@@ -594,7 +588,7 @@ convolver_runtime_coeffs2cbuf(void *src,  /* nfft / 2 */
     convolver_mixnscale(&tmp, dest, &scale, 1, CONVOLVER_MIXMODE_INPUT);
 }
 
-bool_t
+bool
 convolver_verify_cbuf(void *cbufs[],
                       int n_cbufs)
 {
@@ -603,14 +597,14 @@ convolver_verify_cbuf(void *cbufs[],
     for (n = 0; n < n_cbufs; n++) {
         if (realsize == 4) {
             for (i = 0; i < n_fft; i++) {
-                if (!finite((double)((float *)cbufs[n])[i])) {
+                if (!isfinite((double)((float *)cbufs[n])[i])) {
                     fprintf(stderr, "NaN or Inf value among coefficients.\n");
                     return false;
                 }
             }
         } else {
             for (i = 0; i < n_fft; i++) {
-                if (!finite(((double *)cbufs[n])[i])) {
+                if (!isfinite(((double *)cbufs[n])[i])) {
                     fprintf(stderr, "NaN or Inf value among coefficients.\n");
                     return false;
                 }
@@ -658,24 +652,37 @@ convolver_debug_dump_cbuf(const char filename[],
     fclose(stream);
 }
 
+static void *
+convolver_fftplan_ex(int order,
+                     int invert,
+                     int inplace,
+                     int quiet)
+{
+    invert = !!invert;
+    inplace = !!inplace;
+    if (!bit32_isset(&fftplan_generated[invert][inplace], order)) {
+        if (!quiet) {
+            pinfo("Creating %s%sFFTW plan of size %d using wisdom...",
+                  invert ? "inverse " : "forward ",
+                  inplace ? "inplace " : "",
+                  1 << order);
+        }
+        fftplan_table[invert][inplace][order] =
+            create_fft_plan(1 << order, inplace, invert);
+        if (!quiet) {
+            pinfo("finished\n");
+        }
+        bit32_set(&fftplan_generated[invert][inplace], order);
+    }
+    return fftplan_table[invert][inplace][order];
+}
+
 void *
 convolver_fftplan(int order,
                   int invert,
                   int inplace)
 {
-    invert = !!invert;
-    inplace = !!inplace;
-    if (!bit_isset(&fftplan_generated[invert][inplace], order)) {
-        pinfo("Creating %s%sFFTW plan of size %d using wisdom...",
-              invert ? "inverse " : "forward ",
-              inplace ? "inplace " : "",
-              1 << order);
-        fftplan_table[invert][inplace][order] =
-            create_fft_plan(1 << order, inplace, invert);
-        pinfo("finished\n");
-        bit_set(&fftplan_generated[invert][inplace], order);
-    }
-    return fftplan_table[invert][inplace][order];
+    return convolver_fftplan_ex(order, invert, inplace, bfconf->quiet);
 }
 
 struct _td_conv_t_ {
@@ -780,14 +787,13 @@ convolver_td_convolve(td_conv_t *tdc,
     }
 }
 
-bool_t
+bool
 convolver_init(const char config_filename[],
 	       int length,
                int _realsize)
 {
     int order;
     FILE *stream;
-    bool_t quiet;
 
     realsize = _realsize;
     decide_opt_code();
@@ -823,13 +829,10 @@ convolver_init(const char config_filename[],
 
     memset(fftplan_generated, 0, sizeof(fftplan_generated));
     pinfo("Creating 4 FFTW plans of size %d...", 1 << fft_order);
-    quiet = bfconf->quiet;
-    bfconf->quiet = true;
-    convolver_fftplan(fft_order, false, false);
-    convolver_fftplan(fft_order, false, true);
-    convolver_fftplan(fft_order, true, false);
-    convolver_fftplan(fft_order, true, true);
-    bfconf->quiet = quiet;
+    convolver_fftplan_ex(fft_order, false, false, true);
+    convolver_fftplan_ex(fft_order, false, true, true);
+    convolver_fftplan_ex(fft_order, true, false, true);
+    convolver_fftplan_ex(fft_order, true, true, true);
     pinfo("finished.\n");
 
     /* Wisdom is cumulative, save it each time (and get wiser) */
