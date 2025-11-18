@@ -552,8 +552,6 @@ static void
 print_overflows(void)
 {
     bool is_overflow = false;
-    double peak;
-
     for (int n = 0; n < bfconf->n_channels[OUT]; n++) {
         if (icomm->overflow[n].n_overflows > 0) {
             is_overflow = true;
@@ -565,7 +563,7 @@ print_overflows(void)
     }
     pinfo("peak: ");
     for (int n = 0; n < bfconf->n_channels[OUT]; n++) {
-        peak = icomm->overflow[n].largest;
+        double peak = icomm->overflow[n].largest;
         if (peak < (double)icomm->overflow[n].intlargest) {
             peak = (double)icomm->overflow[n].intlargest;
         }
@@ -631,8 +629,7 @@ rti_and_overflow(void)
 
     if (icomm->doreset_overflow) {
         icomm->doreset_overflow = false;
-        memset(overflow, 0, sizeof(struct bfoverflow) *
-               bfconf->n_channels[OUT]);
+        memset(overflow, 0, sizeof(struct bfoverflow) * bfconf->n_channels[OUT]);
     }
 
     /* calculate realtime index */
@@ -680,7 +677,7 @@ static bool
 memiszero(const void *buf,
           const int size)
 {
-    /* we go through all memory always, to avoid variations in time it takes */
+    // we go through all memory always, to avoid variations in time it takes
     uintptr_t acc = 0;
     int count = size >> ARCH_LOG2_SIZEOF_PTR;
     int n;
@@ -742,7 +739,7 @@ test_silent(void *buf, // may be modified if analog_powersave
     if (scale * dmax >= analog_powersave) {
         return false;
     }
-    /* make it truly zero */
+    // make it truly zero
     memset(buf, 0, size);
     return true;
 }
@@ -832,9 +829,10 @@ output_process(bf_sem_t *filter_readfd,
     /* verify if we need to write iodelay output */
     if (bfconf->synched_write) {
         pinfo("Fixed I/O-delay is %d samples\n"
-              "Audio processing starts now\n", 2 * bfconf->filter_length +
-            (bfconf->use_subdelay[IN] ? bfconf->sdf_length : 0) +
-            (bfconf->use_subdelay[OUT] ? bfconf->sdf_length : 0));
+              "Audio processing starts now\n",
+              2 * bfconf->filter_length +
+              (bfconf->use_subdelay[IN] ? bfconf->sdf_length : 0) +
+              (bfconf->use_subdelay[OUT] ? bfconf->sdf_length : 0));
         if (trigger_callback_io) {
             dai_trigger_callback_io();
         }
@@ -905,9 +903,7 @@ output_process(bf_sem_t *filter_readfd,
         }
         icomm->debug.periods++;
 
-        if (bfconf->debug &&
-            icomm->debug.periods == DEBUG_RING_BUFFER_SIZE - 4)
-        {
+        if (bfconf->debug && icomm->debug.periods == DEBUG_RING_BUFFER_SIZE - 4) {
             fprintf(stderr, "Debug timestamp buffer is now full, exiting\n");
             bf_exit(BF_EXIT_OTHER);
         }
@@ -924,10 +920,7 @@ apply_subdelay(void *realbuf,
                int n_samples,
                void *arg)
 {
-    struct apply_subdelay_params *p;
-
-    p = (struct apply_subdelay_params *)arg;
-
+    struct apply_subdelay_params *p = (struct apply_subdelay_params *)arg;
     if (p->rest == NULL) {
         return;
     }
@@ -1103,13 +1096,9 @@ filter_process(struct filter_process_args *a)
     for (n = j = 0; n < n_procinputs; n++) {
         virtch = procinputs[n];
         physch = bfconf->virt2phys[IN][virtch];
-        if (bfconf->use_subdelay[IN] &&
-            bfconf->subdelay[IN][virtch] != BF_UNDEFINED_SUBDELAY)
-        {
-            input_sd_rest[virtch] =
-                emallocaligned(subdelay_fb_size * bfconf->realsize);
-            memset(input_sd_rest[virtch], 0,
-                   subdelay_fb_size * bfconf->realsize);
+        if (bfconf->use_subdelay[IN] && bfconf->subdelay[IN][virtch] != BF_UNDEFINED_SUBDELAY)  {
+            input_sd_rest[virtch] = emallocaligned(subdelay_fb_size * bfconf->realsize);
+            memset(input_sd_rest[virtch], 0, subdelay_fb_size * bfconf->realsize);
         } else {
             input_sd_rest[virtch] = NULL;
         }
@@ -1123,9 +1112,7 @@ filter_process(struct filter_process_args *a)
                 }
             }
             delay = 0;
-            if (bfconf->use_subdelay[IN] &&
-                bfconf->subdelay[IN][virtch] == BF_UNDEFINED_SUBDELAY)
-            {
+            if (bfconf->use_subdelay[IN] && bfconf->subdelay[IN][virtch] == BF_UNDEFINED_SUBDELAY) {
                 delay = bfconf->sdf_length;
             }
             input_db[virtch] =
@@ -1150,13 +1137,9 @@ filter_process(struct filter_process_args *a)
     for (n = 0; n < n_procoutputs; n++) {
         virtch = procoutputs[n];
         physch = bfconf->virt2phys[OUT][virtch];
-        if (bfconf->use_subdelay[OUT] &&
-            bfconf->subdelay[OUT][virtch] != BF_UNDEFINED_SUBDELAY)
-        {
-            output_sd_rest[virtch] =
-                emallocaligned(subdelay_fb_size * bfconf->realsize);
-            memset(output_sd_rest[virtch], 0,
-                   subdelay_fb_size * bfconf->realsize);
+        if (bfconf->use_subdelay[OUT] && bfconf->subdelay[OUT][virtch] != BF_UNDEFINED_SUBDELAY) {
+            output_sd_rest[virtch] = emallocaligned(subdelay_fb_size * bfconf->realsize);
+            memset(output_sd_rest[virtch], 0, subdelay_fb_size * bfconf->realsize);
         } else {
             output_sd_rest[virtch] = NULL;
         }
@@ -1279,19 +1262,16 @@ filter_process(struct filter_process_args *a)
     for (n = 0; n < n_filters; n++) {
         if (filters[n].n_filters[IN] > 0) {
             /* allocate extra position for filter-input evaluation buffer */
-            mixconvbuf_inputs[n] =
-                alloca((filters[n].n_channels[IN] + 1) * sizeof(void **));
+            mixconvbuf_inputs[n] = alloca((filters[n].n_channels[IN] + 1) * sizeof(void **));
             mixconvbuf_inputs[n][filters[n].n_channels[IN]] = NULL;
         } else if (filters[n].n_channels[IN] == 0) {
             mixconvbuf_inputs[n] = NULL;
             continue;
         } else {
-            mixconvbuf_inputs[n] =
-                alloca(filters[n].n_channels[IN] * sizeof(void **));
+            mixconvbuf_inputs[n] = alloca(filters[n].n_channels[IN] * sizeof(void **));
         }
         for (i = 0; i < filters[n].n_channels[IN]; i++) {
-            mixconvbuf_inputs[n][i] =
-                input_freqcbuf[filters[n].channels[IN][i]];
+            mixconvbuf_inputs[n][i] = input_freqcbuf[filters[n].channels[IN][i]];
         }
     }
     /* for each filter, find out which filter-inputs that are mixed */
@@ -1302,10 +1282,8 @@ filter_process(struct filter_process_args *a)
             mixconvbuf_filters_map[n] = NULL;
             continue;
         }
-        mixconvbuf_filters[n] =
-            alloca(filters[n].n_filters[IN] * sizeof(void **));
-        mixconvbuf_filters_map[n] =
-            alloca(filters[n].n_filters[IN] * sizeof(int));
+        mixconvbuf_filters[n] = alloca(filters[n].n_filters[IN] * sizeof(void **));
+        mixconvbuf_filters_map[n] = alloca(filters[n].n_filters[IN] * sizeof(int));
         for (i = 0; i < filters[n].n_filters[IN]; i++) {
             /* find out index of filter */
             for (j = 0; j < n_filters; j++) {
@@ -1318,8 +1296,7 @@ filter_process(struct filter_process_args *a)
         }
     }
 
-    /* for each unique output channel, find out which filters that
-       mixes its output to it */
+    /* for each unique output channel, find out which filters that mixes its output to it */
     memset(outconvbuf_n_filters, 0, sizeof(outconvbuf_n_filters));
     for (n = 0; n < n_outputs; n++) {
         for (i = 0; i < n_filters; i++) {
@@ -1327,8 +1304,7 @@ filter_process(struct filter_process_args *a)
                 if (filters[i].channels[OUT][j] == outputs[n]) {
                     outconvbuf_map[n][outconvbuf_n_filters[n]] = i;
                     outconvbuf[n][outconvbuf_n_filters[n]] = ocbuf[i];
-                    outscale[n][outconvbuf_n_filters[n]] =
-                               &icomm_fctrl[i].scale[OUT][j];
+                    outscale[n][outconvbuf_n_filters[n]] = &icomm_fctrl[i].scale[OUT][j];
                     outconvbuf_n_filters[n]++;
                     /* output exists only once per filter, we can break here */
                     break;
@@ -1346,8 +1322,7 @@ filter_process(struct filter_process_args *a)
     }
 
     if (bfconf->debug) {
-        fprintf(stderr, "(%d) got %d inputs, %d outputs\n", process_index,
-                n_procinputs, n_procoutputs);
+        fprintf(stderr, "(%d) got %d inputs, %d outputs\n", process_index, n_procinputs, n_procoutputs);
         for (n = 0; n < n_procinputs; n++) {
             fprintf(stderr, "(%d) input: %d\n", process_index, procinputs[n]);
         }
@@ -1356,8 +1331,7 @@ filter_process(struct filter_process_args *a)
         }
     }
 
-    /* access all memory while being nobody, so we don't risk getting killed
-       later if memory is scarce */
+    /* access all memory while being nobody, so we don't risk getting killed later if memory is scarce */
     memset(baseptr, 0, memsize);
     for (n = 0; n < bfconf->n_coeffs; n++) {
         for (i = 0; i < bfconf->coeffs[n].n_blocks; i++) {
@@ -1419,8 +1393,7 @@ filter_process(struct filter_process_args *a)
                     events.block_start[i](bfaccess, blockcounter, &tv);
                 }
             }
-            synch_filter_processes(filter_readfd, filter_writefd,
-                                   process_index);
+            synch_filter_processes(filter_readfd, filter_writefd, process_index);
         }
 
         /* get all shared memory data we need where mutex is important */
@@ -1428,19 +1401,15 @@ filter_process(struct filter_process_args *a)
         icomm_mutex(1);
         for (n = 0; n < n_filters; n++) {
             icomm_fctrl[n].coeff = icomm->fctrl[filters[n].intname].coeff;
-            icomm_fctrl[n].delayblocks =
-                icomm->fctrl[filters[n].intname].delayblocks;
+            icomm_fctrl[n].delayblocks = icomm->fctrl[filters[n].intname].delayblocks;
             for (i = 0; i < filters[n].n_channels[IN]; i++) {
-                icomm_fctrl[n].scale[IN][i] =
-                    icomm->fctrl[filters[n].intname].scale[IN][i];
+                icomm_fctrl[n].scale[IN][i] = icomm->fctrl[filters[n].intname].scale[IN][i];
             }
             for (i = 0; i < filters[n].n_channels[OUT]; i++) {
-                icomm_fctrl[n].scale[OUT][i] =
-                    icomm->fctrl[filters[n].intname].scale[OUT][i];
+                icomm_fctrl[n].scale[OUT][i] = icomm->fctrl[filters[n].intname].scale[OUT][i];
             }
             for (i = 0; i < filters[n].n_filters[IN]; i++) {
-                icomm_fctrl[n].fscale[i] =
-                    icomm->fctrl[filters[n].intname].fscale[i];
+                icomm_fctrl[n].fscale[i] = icomm->fctrl[filters[n].intname].fscale[i];
             }
         }
         memcpy(icomm_ismuted, (void *)icomm->ismuted, sizeof(icomm_ismuted));
@@ -1476,9 +1445,7 @@ filter_process(struct filter_process_args *a)
             } else {
                 if (!bit32_isset(icomm_ismuted[IN], virtch)) {
                     delay = icomm_delay[IN][virtch];
-                    if (bfconf->use_subdelay[IN] &&
-                        bfconf->subdelay[IN][virtch] == BF_UNDEFINED_SUBDELAY)
-                    {
+                    if (bfconf->use_subdelay[IN] && bfconf->subdelay[IN][virtch] == BF_UNDEFINED_SUBDELAY) {
                         delay += bfconf->sdf_length;
                     }
                     delay_update(input_db[virtch],
@@ -1511,16 +1478,14 @@ filter_process(struct filter_process_args *a)
                              bfconf->analog_powersave,
                              bf->sf.scale))
             {
-                convolver_time2freq(input_timecbuf[n][curbuf],
-                                    input_freqcbuf[procinputs[n]]);
+                convolver_time2freq(input_timecbuf[n][curbuf], input_freqcbuf[procinputs[n]]);
                 input_freqcbuf_zero[procinputs[n]] = false;
             } else if (!input_freqcbuf_zero[procinputs[n]]) {
                 memset(input_freqcbuf[procinputs[n]], 0, convbufsize);
                 input_freqcbuf_zero[procinputs[n]] = true;
             }
             for (i = 0; i < events.n_input_freqd; i++) {
-                events.input_freqd[i](input_freqcbuf[procinputs[n]],
-                                      procinputs[n]);
+                events.input_freqd[i](input_freqcbuf[procinputs[n]], procinputs[n]);
             }
             timestamp(&t2);
             t[1] += t2 - t1;
@@ -1539,8 +1504,7 @@ filter_process(struct filter_process_args *a)
             timestamp(&t1);
             coeff = icomm_fctrl[n].coeff;
             if (events.n_coeff_final == 1) {
-                /* this module wants final control of the choice of
-                   coefficient */
+                /* this module wants final control of the choice of coefficient */
                 events.coeff_final[0](filters[n].intname, &coeff);
             }
             delay = icomm_fctrl[n].delayblocks;
@@ -1556,9 +1520,7 @@ filter_process(struct filter_process_args *a)
             } else {
                 cblocks = bfconf->coeffs[coeff].n_blocks;
             }
-            if (prevcoeff[n] < 0 ||
-                bfconf->coeffs[prevcoeff[n]].n_blocks > n_blocks - delay)
-            {
+            if (prevcoeff[n] < 0 || bfconf->coeffs[prevcoeff[n]].n_blocks > n_blocks - delay) {
                 prevcblocks = n_blocks - delay;
             } else {
                 prevcblocks = bfconf->coeffs[prevcoeff[n]].n_blocks;
@@ -1568,8 +1530,7 @@ filter_process(struct filter_process_args *a)
 
             /* mix and scale inputs prior to convolution */
             if (filters[n].n_filters[IN] > 0) {
-                /* mix, scale and reorder filter-inputs for evaluation in the
-                   time domain. */
+                /* mix, scale and reorder filter-inputs for evaluation in the time domain. */
                 iszero = true;
                 for (i = 0; i < filters[n].n_filters[IN]; i++) {
                     if (!ocbuf_zero[mixconvbuf_filters_map[n][i]]) {
@@ -1605,8 +1566,7 @@ filter_process(struct filter_process_args *a)
                    convolution */
                 iszero = temp_buffer_zero;
                 for (i = 0; i < filters[n].n_channels[IN]; i++) {
-                    scales[i] = icomm_fctrl[n].scale[IN][i] *
-                        virtscales[IN][filters[n].channels[IN][i]];
+                    scales[i] = icomm_fctrl[n].scale[IN][i] * virtscales[IN][filters[n].channels[IN][i]];
                     if (!input_freqcbuf_zero[filters[n].channels[IN][i]]) {
                         iszero = false;
                     }
@@ -1628,8 +1588,7 @@ filter_process(struct filter_process_args *a)
             } else {
                 iszero = true;
                 for (i = 0; i < filters[n].n_channels[IN]; i++) {
-                    scales[i] = icomm_fctrl[n].scale[IN][i] *
-                        virtscales[IN][filters[n].channels[IN][i]];
+                    scales[i] = icomm_fctrl[n].scale[IN][i] * virtscales[IN][filters[n].channels[IN][i]];
                     if (!input_freqcbuf_zero[filters[n].channels[IN][i]]) {
                         iszero = false;
                     }
@@ -1661,25 +1620,16 @@ filter_process(struct filter_process_args *a)
                     if (!cbuf_zero[n][0] || !powersave) {
                         if (filters[n].crossfade && prevcoeff[n] != coeff) {
                             if (prevcoeff[n] < 0) {
-                                convolver_dirac_convolve(cbuf[n][0],
-                                                         crossfadebuf[0]);
+                                convolver_dirac_convolve(cbuf[n][0], crossfadebuf[0]);
                             } else {
-                                convolver_convolve
-                                    (cbuf[n][0],
-                                     bfconf->coeffs_data[prevcoeff[n]][0],
-                                     crossfadebuf[0]);
+                                convolver_convolve(cbuf[n][0], bfconf->coeffs_data[prevcoeff[n]][0],
+                                                   crossfadebuf[0]);
                             }
-                            convolver_convolve_inplace
-                                (cbuf[n][0],
-                                 bfconf->coeffs_data[coeff][0]);
-                            convolver_crossfade_inplace(cbuf[n][0],
-                                                        crossfadebuf[0],
-                                                        crossfadebuf[1]);
+                            convolver_convolve_inplace(cbuf[n][0], bfconf->coeffs_data[coeff][0]);
+                            convolver_crossfade_inplace(cbuf[n][0], crossfadebuf[0], crossfadebuf[1]);
                             temp_buffer_zero = false;
                         } else {
-                            convolver_convolve_inplace
-                                (cbuf[n][0],
-                                 bfconf->coeffs_data[coeff][0]);
+                            convolver_convolve_inplace(cbuf[n][0], bfconf->coeffs_data[coeff][0]);
                         }
                         /* cbuf points at ocbuf when n_blocks == 1 */
                         ocbuf_zero[n] = false;
@@ -1692,18 +1642,13 @@ filter_process(struct filter_process_args *a)
                     if (!cbuf_zero[n][curblock] || !powersave) {
                         if (filters[n].crossfade && prevcoeff[n] != coeff) {
                             if (prevcoeff[n] < 0) {
-                                convolver_dirac_convolve(cbuf[n][curblock],
-                                                         crossfadebuf[0]);
+                                convolver_dirac_convolve(cbuf[n][curblock], crossfadebuf[0]);
                             } else {
-                                convolver_convolve
-                                    (cbuf[n][curblock],
-                                     bfconf->coeffs_data[prevcoeff[n]][0],
-                                     crossfadebuf[0]);
+                                convolver_convolve(cbuf[n][curblock], bfconf->coeffs_data[prevcoeff[n]][0],
+                                                   crossfadebuf[0]);
                             }
                         }
-                        convolver_convolve(cbuf[n][curblock],
-                                           bfconf->coeffs_data[coeff][0],
-                                           ocbuf[n]);
+                        convolver_convolve(cbuf[n][curblock], bfconf->coeffs_data[coeff][0], ocbuf[n]);
                         ocbuf_zero[n] = false;
                     } else if (!ocbuf_zero[n]) {
                         memset(ocbuf[n], 0, convbufsize);
@@ -1712,24 +1657,16 @@ filter_process(struct filter_process_args *a)
                     for (i = 1; i < cblocks && i < procblocks[n]; i++) {
                         j = (int)((blockcounter - i) % (unsigned int)n_blocks);
                         if (!cbuf_zero[n][j] || !powersave) {
-                            convolver_convolve_add
-                                (cbuf[n][j],
-                                 bfconf->coeffs_data[coeff][i],
-                                 ocbuf[n]);
+                            convolver_convolve_add(cbuf[n][j], bfconf->coeffs_data[coeff][i], ocbuf[n]);
                             ocbuf_zero[n] = false;
                         }
                     }
-                    if (filters[n].crossfade && prevcoeff[n] != coeff &&
-                        prevcoeff[n] >= 0)
-                    {
+                    if (filters[n].crossfade && prevcoeff[n] != coeff && prevcoeff[n] >= 0) {
                         for (i = 1; i < prevcblocks && i < procblocks[n]; i++) {
-                            j = (int)((blockcounter - i) %
-                                      (unsigned int)n_blocks);
+                            j = (int)((blockcounter - i) % (unsigned int)n_blocks);
                             if (!cbuf_zero[n][j] || !powersave) {
-                                convolver_convolve_add
-                                    (cbuf[n][j],
-                                     bfconf->coeffs_data[prevcoeff[n]][i],
-                                     crossfadebuf[0]);
+                                convolver_convolve_add(cbuf[n][j], bfconf->coeffs_data[prevcoeff[n]][i],
+                                                       crossfadebuf[0]);
                             }
                             ocbuf_zero[n] = false;
                         }
@@ -1738,8 +1675,7 @@ filter_process(struct filter_process_args *a)
                         procblocks[n] = 0;
                         bit32_set(partial_proc, n);
                     } else if (filters[n].crossfade && prevcoeff[n] != coeff) {
-                        convolver_crossfade_inplace(ocbuf[n], crossfadebuf[0],
-                                                    crossfadebuf[1]);
+                        convolver_crossfade_inplace(ocbuf[n], crossfadebuf[0], crossfadebuf[1]);
                         temp_buffer_zero = false;
                     }
                 }
@@ -1747,14 +1683,10 @@ filter_process(struct filter_process_args *a)
                 if (n_blocks == 1) {
                     if (!cbuf_zero[n][0] || !powersave) {
                         if (filters[n].crossfade && prevcoeff[n] != coeff) {
-                            convolver_convolve
-                                (cbuf[n][0],
-                                 bfconf->coeffs_data[prevcoeff[n]][0],
-                                 crossfadebuf[0]);
+                            convolver_convolve(cbuf[n][0], bfconf->coeffs_data[prevcoeff[n]][0],
+                                               crossfadebuf[0]);
                             convolver_dirac_convolve_inplace(cbuf[n][0]);
-                            convolver_crossfade_inplace(cbuf[n][0],
-                                                        crossfadebuf[0],
-                                                        crossfadebuf[1]);
+                            convolver_crossfade_inplace(cbuf[n][0], crossfadebuf[0], crossfadebuf[1]);
                             temp_buffer_zero = false;
                         } else {
                             convolver_dirac_convolve_inplace(cbuf[n][0]);
@@ -1768,10 +1700,8 @@ filter_process(struct filter_process_args *a)
                 } else {
                     if (!cbuf_zero[n][curblock] || !powersave) {
                         if (filters[n].crossfade && prevcoeff[n] != coeff) {
-                            convolver_convolve
-                                (cbuf[n][curblock],
-                                 bfconf->coeffs_data[prevcoeff[n]][0],
-                                 crossfadebuf[0]);
+                            convolver_convolve(cbuf[n][curblock], bfconf->coeffs_data[prevcoeff[n]][0],
+                                               crossfadebuf[0]);
                         }
                         convolver_dirac_convolve(cbuf[n][curblock], ocbuf[n]);
                         ocbuf_zero[n] = false;
@@ -1781,13 +1711,10 @@ filter_process(struct filter_process_args *a)
                     }
                     if (filters[n].crossfade && prevcoeff[n] != coeff) {
                         for (i = 1; i < prevcblocks && i < procblocks[n]; i++) {
-                            j = (int)((blockcounter - i) %
-                                      (unsigned int)n_blocks);
+                            j = (int)((blockcounter - i) % (unsigned int)n_blocks);
                             if (!cbuf_zero[n][j] || !powersave) {
-                                convolver_convolve_add
-                                    (cbuf[n][j],
-                                     bfconf->coeffs_data[prevcoeff[n]][i],
-                                     crossfadebuf[0]);
+                                convolver_convolve_add(cbuf[n][j], bfconf->coeffs_data[prevcoeff[n]][i],
+                                                       crossfadebuf[0]);
                             }
                             ocbuf_zero[n] = false;
                         }
@@ -1796,8 +1723,7 @@ filter_process(struct filter_process_args *a)
                         procblocks[n] = 0;
                         bit32_set(partial_proc, n);
                     } else if (filters[n].crossfade && prevcoeff[n] != coeff) {
-                        convolver_crossfade_inplace(ocbuf[n], crossfadebuf[0],
-                                                    crossfadebuf[1]);
+                        convolver_crossfade_inplace(ocbuf[n], crossfadebuf[0], crossfadebuf[1]);
                         temp_buffer_zero = false;
                     }
                 }
@@ -1867,13 +1793,10 @@ filter_process(struct filter_process_args *a)
             /* Check if there is NaN or Inf values, and abort if so. We cannot
                afford to check all values, but NaN/Inf tend to spread, so
                checking only one value usually catches the problem. */
-            if ((bfconf->realsize == sizeof(float) &&
-                 !isfinite((double)((float *)ocbuf[0])[0])) ||
-                (bfconf->realsize == sizeof(double) &&
-                 !isfinite(((double *)ocbuf[0])[0])))
+            if ((bfconf->realsize == sizeof(float) && !isfinite((double)((float *)ocbuf[0])[0])) ||
+                (bfconf->realsize == sizeof(double) && !isfinite(((double *)ocbuf[0])[0])))
             {
-                fprintf(stderr, "NaN or Inf values in the system! "
-                        "Invalid input? Aborting.\n");
+                fprintf(stderr, "NaN or Inf values in the system! Invalid input? Aborting.\n");
                 bf_exit(BF_EXIT_OTHER);
             }
 
@@ -1886,9 +1809,7 @@ filter_process(struct filter_process_args *a)
                 events.output_timed[i](ocbuf[0], virtch);
             }
             if (output_sd_rest[virtch] != NULL) {
-                delay_subsample_update(ocbuf[0],
-                                       output_sd_rest[virtch],
-                                       icomm_subdelay[OUT][virtch]);
+                delay_subsample_update(ocbuf[0], output_sd_rest[virtch], icomm_subdelay[OUT][virtch]);
             }
             if (bfconf->n_virtperphys[OUT][physch] == 1) {
                 /* only one virtual channel allocated to this physical one, so
@@ -1907,38 +1828,27 @@ filter_process(struct filter_process_args *a)
                    However, when mixing to a single physical channel we cannot
                    do it there, so we must do it here instead. */
                 delay = icomm_delay[OUT][virtch];
-                if (bfconf->use_subdelay[OUT] &&
-                    bfconf->subdelay[OUT][virtch] == BF_UNDEFINED_SUBDELAY)
-                {
+                if (bfconf->use_subdelay[OUT] && bfconf->subdelay[OUT][virtch] == BF_UNDEFINED_SUBDELAY) {
                     delay += bfconf->sdf_length;
                 }
-                delay_update(output_db[virtch], ocbuf[0], bfconf->realsize, 1,
-                             delay, NULL);
+                delay_update(output_db[virtch], ocbuf[0], bfconf->realsize, 1, delay, NULL);
                 if (!bit32_isset(icomm_ismuted[OUT], virtch)) {
                     if (!mixbuf_is_filled) {
                         memcpy(mixbuf, ocbuf[0], fragsize * bfconf->realsize);
                     } else {
                         if (bfconf->realsize == 4) {
                             for (i = 0; i < fragsize; i += 4) {
-                                ((float *)mixbuf)[i+0] +=
-                                    ((float *)ocbuf[0])[i+0];
-                                ((float *)mixbuf)[i+1] +=
-                                    ((float *)ocbuf[0])[i+1];
-                                ((float *)mixbuf)[i+2] +=
-                                    ((float *)ocbuf[0])[i+2];
-                                ((float *)mixbuf)[i+3] +=
-                                    ((float *)ocbuf[0])[i+3];
+                                ((float *)mixbuf)[i+0] += ((float *)ocbuf[0])[i+0];
+                                ((float *)mixbuf)[i+1] += ((float *)ocbuf[0])[i+1];
+                                ((float *)mixbuf)[i+2] += ((float *)ocbuf[0])[i+2];
+                                ((float *)mixbuf)[i+3] += ((float *)ocbuf[0])[i+3];
                             }
                         } else {
                             for (i = 0; i < fragsize; i += 4) {
-                                ((double *)mixbuf)[i+0] +=
-                                    ((double *)ocbuf[0])[i+0];
-                                ((double *)mixbuf)[i+1] +=
-                                    ((double *)ocbuf[0])[i+1];
-                                ((double *)mixbuf)[i+2] +=
-                                    ((double *)ocbuf[0])[i+2];
-                                ((double *)mixbuf)[i+3] +=
-                                    ((double *)ocbuf[0])[i+3];
+                                ((double *)mixbuf)[i+0] += ((double *)ocbuf[0])[i+0];
+                                ((double *)mixbuf)[i+1] += ((double *)ocbuf[0])[i+1];
+                                ((double *)mixbuf)[i+2] += ((double *)ocbuf[0])[i+2];
+                                ((double *)mixbuf)[i+3] += ((double *)ocbuf[0])[i+3];
                             }
                         }
                     }
