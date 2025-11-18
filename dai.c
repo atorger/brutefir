@@ -170,7 +170,7 @@ output_finish(void)
         }
     }
     if (finished) {
-	pinfo("\nFinished!\n");
+        pinfo("\nFinished!\n");
         return true;
     }
     cbmutex(OUT, false);
@@ -179,7 +179,7 @@ output_finish(void)
 
 static void
 update_devmap(const int idx,
-	      const int io)
+              const int io)
 {
     struct subdev *sd = glob.dev[io][idx];
     if (sd->fd >= 0) {
@@ -190,7 +190,7 @@ update_devmap(const int idx,
         glob.fd2dev[io][sd->fd] = sd;
     }
     for (int n = 0; n < sd->channels.used_channels; n++) {
-	glob.ch2dev[io][sd->channels.channel_name[n]] = sd;
+        glob.ch2dev[io][sd->channels.channel_name[n]] = sd;
     }
 }
 
@@ -198,14 +198,14 @@ update_devmap(const int idx,
    mode (it is setup for interleaved layout per default). */
 static void
 noninterleave_modify(const int idx,
-		     const int io)
+                     const int io)
 {
     struct subdev *sd = glob.dev[io][idx];
     if (!sd->isinterleaved) {
-	sd->channels.open_channels = sd->channels.used_channels;
-	for (int n = 0; n < sd->channels.used_channels; n++) {
-	    sd->channels.channel_selection[n] = n;
-	}
+        sd->channels.open_channels = sd->channels.used_channels;
+        for (int n = 0; n < sd->channels.used_channels; n++) {
+            sd->channels.channel_selection[n] = n;
+        }
     }
 }
 
@@ -237,58 +237,58 @@ allocate_delay_buffers(int io,
 {
     sd->db = emalloc(sd->channels.used_channels * sizeof(delaybuffer_t *));
     for (int n = 0; n < sd->channels.used_channels; n++) {
-	/* check if we need a delay buffer here, that is if at least one
-	   channel has a direct virtual to physical mapping */
-	if (bfconf->n_virtperphys[io][sd->channels.channel_name[n]] == 1) {
+        /* check if we need a delay buffer here, that is if at least one
+           channel has a direct virtual to physical mapping */
+        if (bfconf->n_virtperphys[io][sd->channels.channel_name[n]] == 1) {
             const int virtch = bfconf->phys2virt[io][sd->channels.channel_name[n]][0];
             int extra_delay = 0;
             if (bfconf->use_subdelay[io] && bfconf->subdelay[io][virtch] == BF_UNDEFINED_SUBDELAY) {
                 extra_delay = bfconf->sdf_length;
             }
-	    sd->db[n] = delay_allocate_buffer(glob.period_size,
-					      bfconf->delay[io][virtch] +
+            sd->db[n] = delay_allocate_buffer(glob.period_size,
+                                              bfconf->delay[io][virtch] +
                                               extra_delay,
-					      bfconf->maxdelay[io][virtch] +
+                                              bfconf->maxdelay[io][virtch] +
                                               extra_delay,
-					      sd->channels.sf.bytes);
-	} else {
-	    /* this delay is taken care of previous to feeding the channel
-	       output to this module */
-	    sd->db[n] = NULL;
-	}
+                                              sd->channels.sf.bytes);
+        } else {
+            /* this delay is taken care of previous to feeding the channel
+               output to this module */
+            sd->db[n] = NULL;
+        }
     }
 }
 
 static void
 do_mute(struct subdev *sd,
-	const int io,
-	const int wsize,
-	void *buf_,
-	const int offset)
+        const int io,
+        const int wsize,
+        void *buf_,
+        const int offset)
 {
     // Calculate which channels that should be cleared
     int ch[sd->channels.used_channels];
     int bsch[sd->channels.used_channels];
     int n_mute = 0;
     for (int n = 0; n < sd->channels.used_channels; n++) {
-	if (ca->is_muted[io][sd->channels.channel_name[n]]) {
-	    ch[n_mute] = sd->channels.channel_selection[n];
-	    bsch[n_mute] = ch[n_mute] * sd->channels.sf.bytes;
-	    n_mute++;
-	}
+        if (ca->is_muted[io][sd->channels.channel_name[n]]) {
+            ch[n_mute] = sd->channels.channel_selection[n];
+            bsch[n_mute] = ch[n_mute] * sd->channels.sf.bytes;
+            n_mute++;
+        }
     }
     if (n_mute == 0) {
-	return;
+        return;
     }
 
     numunion_t *buf = (numunion_t *)buf_;
     if (!sd->isinterleaved) {
         // non-interleaved case, trivial
         uint8_t *p = &buf->u8[offset / sd->channels.open_channels];
-	for (int n = 0; n < n_mute; n++) {
-	    memset(p + ch[n] * glob.period_size * sd->channels.sf.bytes, 0, wsize / sd->channels.open_channels);
-	}
-	return;
+        for (int n = 0; n < n_mute; n++) {
+            memset(p + ch[n] * glob.period_size * sd->channels.sf.bytes, 0, wsize / sd->channels.open_channels);
+        }
+        return;
     }
 
     // interleaved case, a bit more messy
@@ -299,72 +299,72 @@ do_mute(struct subdev *sd,
     int mid_offset = offset;
     if (head != 0) {
         int k;
-	for (k = 0; k < n_mute && bsch[k] + sd->channels.sf.bytes <= head; k++);
+        for (k = 0; k < n_mute && bsch[k] + sd->channels.sf.bytes <= head; k++);
         uint8_t *p = startp;
-	for (int n = head; p < startp + framesize - head && p < endp; p++, n++) {
-	    if (n >= bsch[k] && n < bsch[k] + sd->channels.sf.bytes) {
-		*p = 0;
-		if (n == bsch[k] + sd->channels.sf.bytes) {
-		    if (++k == n_mute) {
-			break;
-		    }
-		}
-	    }
-	}
-	if (p == endp) {
-	    return;
-	}
-	mid_offset += framesize - head;
+        for (int n = head; p < startp + framesize - head && p < endp; p++, n++) {
+            if (n >= bsch[k] && n < bsch[k] + sd->channels.sf.bytes) {
+                *p = 0;
+                if (n == bsch[k] + sd->channels.sf.bytes) {
+                    if (++k == n_mute) {
+                        break;
+                    }
+                }
+            }
+        }
+        if (p == endp) {
+            return;
+        }
+        mid_offset += framesize - head;
     }
     switch (sd->channels.sf.bytes) {
     case 1:
-	for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += sd->channels.open_channels) {
-	    for (int n = 0; n < n_mute; n++) {
-		p[ch[n]] = 0;
-	    }
-	}
-	break;
+        for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += sd->channels.open_channels) {
+            for (int n = 0; n < n_mute; n++) {
+                p[ch[n]] = 0;
+            }
+        }
+        break;
     case 2:
-	for (uint16_t *p16 = &buf->u16[mid_offset>>1]; (uint8_t *)p16 < endp; p16 += sd->channels.open_channels) {
-	    for (int n = 0; n < n_mute; n++) {
-		p16[ch[n]] = 0;
-	    }
-	}
-	break;
+        for (uint16_t *p16 = &buf->u16[mid_offset>>1]; (uint8_t *)p16 < endp; p16 += sd->channels.open_channels) {
+            for (int n = 0; n < n_mute; n++) {
+                p16[ch[n]] = 0;
+            }
+        }
+        break;
     case 3:
-	for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += sd->channels.open_channels) {
-	    for (int n = 0; n < n_mute; n++) {
-		p[bsch[n]+0] = 0;
-		p[bsch[n]+1] = 0;
-		p[bsch[n]+2] = 0;
-	    }
-	}
+        for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += sd->channels.open_channels) {
+            for (int n = 0; n < n_mute; n++) {
+                p[bsch[n]+0] = 0;
+                p[bsch[n]+1] = 0;
+                p[bsch[n]+2] = 0;
+            }
+        }
     case 4: {
-	for (uint32_t *p32 = &buf->u32[mid_offset>>2]; (uint8_t *)p32 < endp; p32 += sd->channels.open_channels) {
-	    for (int n = 0; n < n_mute; n++) {
-		p32[ch[n]] = 0;
-	    }
-	}
-	break;
+        for (uint32_t *p32 = &buf->u32[mid_offset>>2]; (uint8_t *)p32 < endp; p32 += sd->channels.open_channels) {
+            for (int n = 0; n < n_mute; n++) {
+                p32[ch[n]] = 0;
+            }
+        }
+        break;
     }
     case 8: {
-	for (uint64_t *p64 = &buf->u64[mid_offset>>3]; (uint8_t *)p64 < endp; p64 += sd->channels.open_channels) {
-	    for (int n = 0; n < n_mute; n++) {
-		p64[ch[n]] = 0;
-	    }
-	}
-	break;
+        for (uint64_t *p64 = &buf->u64[mid_offset>>3]; (uint8_t *)p64 < endp; p64 += sd->channels.open_channels) {
+            for (int n = 0; n < n_mute; n++) {
+                p64[ch[n]] = 0;
+            }
+        }
+        break;
     }
     default:
-	fprintf(stderr, "Sample byte size %d not supported.\n", sd->channels.sf.bytes);
-	bf_exit(BF_EXIT_OTHER);
-	break;
+        fprintf(stderr, "Sample byte size %d not supported.\n", sd->channels.sf.bytes);
+        bf_exit(BF_EXIT_OTHER);
+        break;
     }
 
     const int tail = (offset + wsize) % framesize;
     if (tail != 0) {
         uint8_t *p = endp - tail;
-	if (p >= startp) {
+        if (p >= startp) {
             for (int n = 0, k = 0; p < endp; p++, n++) {
                 if (n >= bsch[k] && n < bsch[k] + sd->channels.sf.bytes) {
                     *p = 0;
@@ -375,13 +375,13 @@ do_mute(struct subdev *sd,
                     }
                 }
             }
-	}
+        }
     }
 }
 
 static bool
 init_input(const struct dai_subdevice *dai_subdev,
-	   const int idx)
+           const int idx)
 {
     int fd;
 
@@ -407,7 +407,7 @@ init_input(const struct dai_subdevice *dai_subdev,
                                sd->uses_callback ? process_callback : NULL)) == -1)
     {
         fprintf(stderr, "Failed to init input device.\n");
-	return false;
+        return false;
     }
     sd->isinterleaved = !!isinterleaved;
     if (sd->uses_callback) {
@@ -446,7 +446,7 @@ init_input(const struct dai_subdevice *dai_subdev,
 
 static bool
 init_output(const struct dai_subdevice *dai_subdev,
-	    const int idx)
+            const int idx)
 {
     int fd;
 
@@ -472,7 +472,7 @@ init_output(const struct dai_subdevice *dai_subdev,
                                sd->uses_callback ? process_callback : NULL)) == -1)
     {
         fprintf(stderr, "Failed to init output device.\n");
-	return false;
+        return false;
     }
     sd->isinterleaved = !!isinterleaved;
     if (sd->uses_callback) {
@@ -509,36 +509,36 @@ init_output(const struct dai_subdevice *dai_subdev,
 
 static void
 calc_buffer_format(const int fragsize,
-		   const int io,
-		   struct dai_buffer_format *format)
+                   const int io,
+                   struct dai_buffer_format *format)
 {
     format->n_samples = fragsize;
     format->n_channels = 0;
     format->n_bytes = 0;
     for (int n = 0; n < glob.n_devs[io]; n++) {
         struct subdev *sd = glob.dev[io][n];
-	sd->buf_offset = format->n_bytes;
-	format->n_channels += sd->channels.used_channels;
-	for (int i = 0; i < sd->channels.used_channels; i++) {
-	    int ch = sd->channels.channel_name[i];
-	    format->bf[ch].sf = sd->channels.sf;
-	    if (sd->isinterleaved) {
-		format->bf[ch].byte_offset = format->n_bytes + sd->channels.channel_selection[i] * sd->channels.sf.bytes;
-		format->bf[ch].sample_spacing = sd->channels.open_channels;
-	    } else {
-		format->bf[ch].byte_offset = format->n_bytes;
-		format->bf[ch].sample_spacing = 1;
-		format->n_bytes += sd->channels.sf.bytes * fragsize;
-	    }
-	}
-	sd->buf_size = sd->buf_left = sd->channels.open_channels * sd->channels.sf.bytes * fragsize;
+        sd->buf_offset = format->n_bytes;
+        format->n_channels += sd->channels.used_channels;
+        for (int i = 0; i < sd->channels.used_channels; i++) {
+            int ch = sd->channels.channel_name[i];
+            format->bf[ch].sf = sd->channels.sf;
+            if (sd->isinterleaved) {
+                format->bf[ch].byte_offset = format->n_bytes + sd->channels.channel_selection[i] * sd->channels.sf.bytes;
+                format->bf[ch].sample_spacing = sd->channels.open_channels;
+            } else {
+                format->bf[ch].byte_offset = format->n_bytes;
+                format->bf[ch].sample_spacing = 1;
+                format->n_bytes += sd->channels.sf.bytes * fragsize;
+            }
+        }
+        sd->buf_size = sd->buf_left = sd->channels.open_channels * sd->channels.sf.bytes * fragsize;
 
-	if (sd->isinterleaved) {
-	    format->n_bytes += sd->buf_size;
-	}
-	if (format->n_bytes % ALIGNMENT != 0) {
-	    format->n_bytes += ALIGNMENT - format->n_bytes % ALIGNMENT;
-	}
+        if (sd->isinterleaved) {
+            format->n_bytes += sd->buf_size;
+        }
+        if (format->n_bytes % ALIGNMENT != 0) {
+            format->n_bytes += ALIGNMENT - format->n_bytes % ALIGNMENT;
+        }
     }
 }
 
@@ -549,8 +549,8 @@ handle_params(const int io)
     int size, ans, subdev_index;
 
     if (!readfd(glob.paramspipe_s[io][0], &subdev_index, sizeof(int))) {
-	fprintf(stderr, "Failed to read from pipe.\n");
-	bf_exit(BF_EXIT_OTHER);
+        fprintf(stderr, "Failed to read from pipe.\n");
+        bf_exit(BF_EXIT_OTHER);
     }
     if (!readfd(glob.paramspipe_s[io][0], &size, sizeof(int))) {
         fprintf(stderr, "Failed to read from pipe.\n");
@@ -598,9 +598,9 @@ callback_init(int n_subdevs[2],
         if (!bfconf->iomods[subdevs[IN][n].module].iscallback) {
             continue;
         }
-	if (!init_input(&subdevs[IN][n], n)) {
-	    return false;
-	}
+        if (!init_input(&subdevs[IN][n], n)) {
+            return false;
+        }
     }
 
     /* initialise outputs */
@@ -608,9 +608,9 @@ callback_init(int n_subdevs[2],
         if (!bfconf->iomods[subdevs[OUT][n].module].iscallback) {
             continue;
         }
-	if (!init_output(&subdevs[OUT][n], n)) {
-	    return false;
-	}
+        if (!init_output(&subdevs[OUT][n], n)) {
+            return false;
+        }
     }
 
     FOR_IN_AND_OUT {
