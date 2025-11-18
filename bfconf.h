@@ -4,13 +4,12 @@
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#ifndef _BFCONF_H_
-#define _BFCONF_H_
+#ifndef BFCONF_H_
+#define BFCONF_H_
 
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "defs.h"
 #include "dai.h"
 #include "bfrun.h"
 #include "bfmod.h"
@@ -31,21 +30,21 @@ struct bfconf {
     int realtime_midprio;
     int realtime_usermaxprio;
     int realtime_minprio;
-    int realsize;    
-    bool_t callback_io;
-    bool_t blocking_io;
-    bool_t powersave;
+    int realsize;
+    bool callback_io;
+    bool blocking_io;
+    bool powersave;
     double analog_powersave;
-    bool_t benchmark;
-    bool_t debug;
-    bool_t quiet;
-    bool_t overflow_warnings;
-    bool_t show_progress;
-    bool_t realtime_priority;
-    bool_t lock_memory;
-    bool_t monitor_rate;
-    bool_t synched_write;
-    bool_t allow_poll_mode;
+    bool benchmark;
+    bool debug;
+    bool quiet;
+    bool overflow_warnings;
+    bool show_progress;
+    bool realtime_priority;
+    bool lock_memory;
+    bool monitor_rate;
+    bool synched_write;
+    bool allow_poll_mode;
     struct dither_state **dither_state;
     int n_coeffs;
     struct bfcoeff *coeffs;
@@ -60,7 +59,7 @@ struct bfconf {
     struct dai_subdevice *subdevs[2];
     int *delay[2];
     int *maxdelay[2];
-    bool_t *mute[2];
+    bool *mute[2];
     int n_filters;
     struct bffilter *filters;
     struct bffilter_control *initfctrl;
@@ -72,7 +71,7 @@ struct bfconf {
     int n_logicmods;
     struct bflogic_module *logicmods;
     char **logicnames;
-    bool_t use_subdelay[2];
+    bool use_subdelay[2];
     int *subdelay[2];
     int sdf_length;
     double sdf_beta;
@@ -83,7 +82,7 @@ extern struct bfconf *bfconf;
 
 void
 bfconf_init(char filename[],
-	    bool_t quiet,
-            bool_t nodefault);
+	    bool quiet,
+            bool nodefault);
 
 #endif
