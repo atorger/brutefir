@@ -1,7 +1,8 @@
 
 # Where to find libraries, and their includes
 LIBPATHS	= #-L/usr/local/lib
-INCLUDE		= #-I/usr/local/include
+INCLUDE		= #-I/usr/local/include -I/usr/include/pipewire-0.3
+INCLUDE		+= -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2
 
 FFTW_LIB	= -lfftw3 -lfftw3f
 
@@ -18,29 +19,31 @@ CC_WARNINGS	= -Wall -Wpointer-arith -Wshadow \
 -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes \
 -Wmissing-declarations -Wnested-externs -Wredundant-decls \
 -Wdisabled-optimization
-CC_OPTIMISE	= -O2
-CC_FLAGS	= $(DEFINE) $(CC_OPTIMISE) -g
+CC_OPTIMISE	= -O0
+CC_STD          = -std=c99 -D_POSIX_C_SOURCE=200809L
+CC_FLAGS	= $(CC_STD) $(DEFINE) $(CC_OPTIMISE) -g
 FPIC		= -fPIC
 LDSHARED	= -shared
 CHMOD_REMOVEX	= -x
 
 BRUTEFIR_LIBS	= $(FFTW_LIB) -lm -ldl
-BRUTEFIR_OBJS	= brutefir.o fftw_convolver.o bfconf.o bfrun.o emalloc.o \
-shmalloc.o dai.o bfconf_lexical.o inout.o dither.o delay.o firwindow.o \
+BRUTEFIR_OBJS	= brutefir.o fftw_convolver.o bfconf.o bfrun.o compat.o emalloc.o bfconcurrency.o \
+shmalloc.o dai.o bfconf_lexical.o dither.o delay.o firwindow.o \
 #peak_limiter.o
 BRUTEFIR_SSE_OBJS = convolver_xmm.o
 BFIO_FILE_OBJS	= bfio_file.fpic.o
 BFIO_NOISE_OBJS	= bfio_noise.fpic.o
 BFIO_ALSA_LIBS	= -lasound
-BFIO_ALSA_OBJS	= bfio_alsa.fpic.o emalloc.fpic.o inout.fpic.o
-BFIO_OSS_OBJS	= bfio_oss.fpic.o emalloc.fpic.o
+BFIO_ALSA_OBJS	= bfio_alsa.fpic.o compat.fpic.o
 BFIO_JACK_LIBS	= -ljack
-BFIO_JACK_OBJS	= bfio_jack.fpic.o emalloc.fpic.o inout.fpic.o
-BFIO_FILECB_OBJS = bfio_filecb.fpic.o emalloc.fpic.o inout.fpic.o
-BFLOGIC_CLI_OBJS = bflogic_cli.fpic.o inout.fpic.o
+BFIO_JACK_OBJS	= bfio_jack.fpic.o
+BFIO_PIPEWIRE_LIBS = -lpipewire-0.3
+BFIO_PIPEWIRE_OBJS = bfio_pipewire.fpic.o compat.fpic.o
+BFIO_FILECB_OBJS = bfio_filecb.fpic.o emalloc.fpic.o
+BFLOGIC_CLI_OBJS = bflogic_cli.fpic.o compat.fpic.o
 BFLOGIC_TEST_OBJS = bflogic_test.fpic.o shmalloc.fpic.o
 BFLOGIC_XTC_OBJS = bflogic_xtc.fpic.o emalloc.fpic.o
-BFLOGIC_EQ_OBJS = bflogic_eq.fpic.o emalloc.fpic.o shmalloc.fpic.o
+BFLOGIC_EQ_OBJS = bflogic_eq.fpic.o emalloc.fpic.o compat.fpic.o shmalloc.fpic.o
 BFLOGIC_HRTF_OBJS = bflogic_hrtf.fpic.o emalloc.fpic.o shmalloc.fpic.o
 
 BASE_TARGETS	= brutefir cli.bflogic file.bfio eq.bflogic noise.bfio \
@@ -67,7 +70,7 @@ endif
 TARGETS	+= alsa.bfio
 endif
 
-TARGETS += oss.bfio jack.bfio filecb.bfio
+TARGETS += pipewire.bfio jack.bfio filecb.bfio
 
 all: $(TARGETS)
 
@@ -93,10 +96,6 @@ alsa.bfio: $(BFIO_ALSA_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_ALSA_OBJS) $(BFIO_ALSA_LIBS) -lc
 	$(CHMOD) $(CHMOD_REMOVEX) $@
 
-oss.bfio: $(BFIO_OSS_OBJS)
-	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_OSS_OBJS) -lc
-	$(CHMOD) $(CHMOD_REMOVEX) $@
-
 file.bfio: $(BFIO_FILE_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_FILE_OBJS) -lc
 	$(CHMOD) $(CHMOD_REMOVEX) $@
@@ -111,6 +110,10 @@ filecb.bfio: $(BFIO_FILECB_OBJS)
 
 jack.bfio: $(BFIO_JACK_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_JACK_OBJS) $(BFIO_JACK_LIBS) -lc
+	$(CHMOD) $(CHMOD_REMOVEX) $@
+
+pipewire.bfio: $(BFIO_PIPEWIRE_OBJS)
+	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_PIPEWIRE_OBJS) $(BFIO_PIPEWIRE_LIBS) -lc
 	$(CHMOD) $(CHMOD_REMOVEX) $@
 
 cli.bflogic: $(BFLOGIC_CLI_OBJS)
@@ -177,7 +180,6 @@ distrib: all
 	cp fftw_convolver.c brutefir-$(BRUTEFIR_VERSION)
 	cp firwindow.c brutefir-$(BRUTEFIR_VERSION)
 	cp firwindow.h brutefir-$(BRUTEFIR_VERSION)
-	cp inout.c brutefir-$(BRUTEFIR_VERSION)
 	cp inout.h brutefir-$(BRUTEFIR_VERSION)
 	cp log2.h brutefir-$(BRUTEFIR_VERSION)
 	cp massive_config brutefir-$(BRUTEFIR_VERSION)
@@ -204,4 +206,4 @@ xtc: $(BFLOGIC_XTC_OBJS)
 	$(CHECKER) $(LIBPATHS) -o $@ $(BFLOGIC_XTC_OBJS) $(MATH_LIB) $(GSL_LIB)
 
 clean:
-	rm -f *.core core bfconf_lexical.c $(BRUTEFIR_OBJS) $(BFIO_OSS_OBJS) $(BFIO_JACK_OBJS) $(BFLOGIC_EQ_OBJS) $(BFLOGIC_XTC_OBJS) $(BFLOGIC_HRTF_OBJS) $(BFLOGIC_CLI_OBJS) $(BFIO_ALSA_OBJS) $(BFIO_FILE_OBJS)
+	rm -f *.core core bfconf_lexical.c $(BRUTEFIR_OBJS) $(BFIO_OSS_OBJS) $(BFIO_JACK_OBJS) $(BFLOGIC_EQ_OBJS) $(BFLOGIC_XTC_OBJS) $(BFLOGIC_HRTF_OBJS) $(BFLOGIC_CLI_OBJS) $(BFIO_ALSA_OBJS) $(BFIO_FILE_OBJS) $(BFIO_FILECB_OBJS) $(BFIO_PIPEWIRE_OBJS)
