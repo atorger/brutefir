@@ -4,8 +4,8 @@
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#ifndef _TIMERMACROS_H_
-#define _TIMERMACROS_H_
+#ifndef TIMERMACROS_H_
+#define TIMERMACROS_H_
 
 /* These two macros are defined in sys/time.h on most systems */
 #include <sys/time.h>
