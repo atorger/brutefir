@@ -4,6 +4,7 @@
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
+#include "compat.h"
 
 static inline real_t
 COSINE_INT_NAME(real_t mag1,
@@ -19,7 +20,7 @@ COSINE_INT_NAME(real_t mag1,
 
 static void
 RENDER_EQUALISER_NAME(struct realtime_eq *eq)
-{    
+{
     real_t mag, rad, curfreq, scale, divtaps, tapspi;
     real_t *eqmag, *eqfreq, *eqphase;
     struct timeval tv1, tv2;
@@ -29,9 +30,9 @@ RENDER_EQUALISER_NAME(struct realtime_eq *eq)
 
     /* poll until ready */
     while (eq->not_changed) {
-        usleep(10000);
+        compat_usleep(10000);
     }
-    
+
     gettimeofday(&tv1, NULL);
     /* generate smoothed frequency domain filter */
     eqmag = alloca(eq->band_count * sizeof(real_t));
@@ -96,8 +97,7 @@ RENDER_EQUALISER_NAME(struct realtime_eq *eq)
 
     if (debug) {
         fprintf(stderr, "EQ: rendering coefficient set %d took %.2f ms\n",
-                eq->coeff[eq->active_coeff],
+                (int)eq->coeff[eq->active_coeff],
                 (double)tv1.tv_sec * 1000.0 + (double)tv1.tv_usec / 1000.0);
     }
 }
-
