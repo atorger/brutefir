@@ -22,7 +22,6 @@
 #define O_LARGEFILE 0
 #endif
 
-#include "defs.h"
 #include "emalloc.h"
 #include "shmalloc.h"
 #include "dai.h"
@@ -45,12 +44,16 @@
 
 struct dai_buffer_format *dai_buffer_format[2] = { NULL, NULL };
 
+// types for volatile stuff
+typedef intptr_t wordint_t;
+typedef uintptr_t wordbool_t;
+
 struct subdev {
-    volatile bool_t finished;
-    bool_t uses_callback;
-    bool_t uses_clock;
-    bool_t isinterleaved;
-    bool_t bad_alignment;
+    volatile wordbool_t finished;
+    bool uses_callback;
+    bool uses_clock;
+    bool isinterleaved;
+    bool bad_alignment;
     int index;
     int fd;
     int buf_size;
@@ -69,13 +72,13 @@ struct subdev {
 };
 
 struct comarea {
-    volatile bool_t blocking_stopped;
-    volatile int lastbuf_index;
-    volatile int frames_left;
-    volatile int cb_lastbuf_index;
-    volatile int cb_frames_left;
-    volatile bool_t is_muted[2][BF_MAXCHANNELS];
-    volatile int delay[2][BF_MAXCHANNELS];
+    volatile wordbool_t blocking_stopped;
+    volatile wordint_t lastbuf_index;
+    volatile wordint_t frames_left;
+    volatile wordint_t cb_lastbuf_index;
+    volatile wordint_t cb_frames_left;
+    volatile wordbool_t is_muted[2][BF_MAXCHANNELS];
+    volatile wordint_t delay[2][BF_MAXCHANNELS];
     volatile bf_pid_t pid[2];
     volatile bf_pid_t callback_pid;
     struct subdev dev[2][BF_MAXCHANNELS];
@@ -95,7 +98,7 @@ static struct {
     int dev_fdn[2];
     int min_block_size[2];
     int cb_min_block_size[2];
-    bool_t input_poll_mode;
+    bool input_poll_mode;
     struct subdev *dev[2][BF_MAXCHANNELS];
     struct subdev *fd2dev[2][FD_SETSIZE];
     struct subdev *ch2dev[2][BF_MAXCHANNELS];
@@ -146,7 +149,7 @@ process_callback(void **state[2],
 
 static void
 cbmutex(int io,
-        bool_t lock)
+        bool lock)
 {
     if (lock) {
         bf_sem_wait(&glob.cbmutex_pipe[io]);
@@ -155,11 +158,11 @@ cbmutex(int io,
     }
 }
 
-static bool_t
+static bool
 output_finish(void)
 {
     cbmutex(OUT, true);
-    bool_t finished = true;
+    bool finished = true;
     for (int n = 0; n < glob.n_devs[OUT]; n++) {
         if (!glob.dev[OUT][n]->finished) {
             finished = false;
@@ -376,7 +379,7 @@ do_mute(struct subdev *sd,
     }
 }
 
-static bool_t
+static bool
 init_input(const struct dai_subdevice *dai_subdev,
 	   const int idx)
 {
@@ -389,6 +392,7 @@ init_input(const struct dai_subdevice *dai_subdev,
     sd->module = &bfconf->iomods[dai_subdev->module];
     sd->index = idx;
 
+    int isinterleaved;
     if ((fd = sd->module->init(dai_subdev->params,
                                IN,
                                dai_subdev->channels.sf.format,
@@ -398,15 +402,14 @@ init_input(const struct dai_subdevice *dai_subdev,
                                dai_subdev->channels.channel_selection,
                                glob.period_size,
                                &sd->block_size_frames,
-                               &sd->isinterleaved,
-                               sd->uses_callback ?
-                               sd : NULL,
-                               sd->uses_callback ?
-                               process_callback : NULL)) == -1)
+                               &isinterleaved,
+                               sd->uses_callback ? sd : NULL,
+                               sd->uses_callback ? process_callback : NULL)) == -1)
     {
         fprintf(stderr, "Failed to init input device.\n");
 	return false;
     }
+    sd->isinterleaved = !!isinterleaved;
     if (sd->uses_callback) {
         sd->fd = -1;
         if (sd->block_size_frames == 0 || glob.period_size % sd->block_size_frames != 0) {
@@ -441,7 +444,7 @@ init_input(const struct dai_subdevice *dai_subdev,
     return true;
 }
 
-static bool_t
+static bool
 init_output(const struct dai_subdevice *dai_subdev,
 	    const int idx)
 {
@@ -454,6 +457,7 @@ init_output(const struct dai_subdevice *dai_subdev,
     sd->module = &bfconf->iomods[dai_subdev->module];
     sd->index = idx;
 
+    int isinterleaved;
     if ((fd = sd->module->init(dai_subdev->params,
                                OUT,
                                dai_subdev->channels.sf.format,
@@ -463,15 +467,14 @@ init_output(const struct dai_subdevice *dai_subdev,
                                dai_subdev->channels.channel_selection,
                                glob.period_size,
                                &sd->block_size_frames,
-                               &sd->isinterleaved,
-                               sd->uses_callback ?
-                               sd : NULL,
-                               sd->uses_callback ?
-                               process_callback : NULL)) == -1)
+                               &isinterleaved,
+                               sd->uses_callback ? sd : NULL,
+                               sd->uses_callback ? process_callback : NULL)) == -1)
     {
         fprintf(stderr, "Failed to init output device.\n");
 	return false;
     }
+    sd->isinterleaved = !!isinterleaved;
     if (sd->uses_callback) {
         sd->fd = -1;
         if (sd->block_size_frames == 0 || glob.period_size % sd->block_size_frames != 0) {
@@ -583,7 +586,7 @@ handle_params(const int io)
     efree(msgstr);
 }
 
-static bool_t
+static bool
 callback_init(int n_subdevs[2],
               struct dai_subdevice *subdevs[2])
 {
@@ -630,7 +633,7 @@ Error: currently no support for bad callback I/O block alignment.\n\
 static void
 callback_process(int n_subdevs[2],
                  struct dai_subdevice *subdevs[2],
-                 bf_pid_t *wpid)
+                 pid_t *wpid)
 {
     bf_sem_never_wait(&glob.cbpipe_r);
     bf_sem_never_post(&glob.cbpipe_s);
@@ -638,7 +641,7 @@ callback_process(int n_subdevs[2],
     bf_sem_postmsg(&glob.cbpipe_r, &bool_msg, 1);
     if (!bool_msg) {
         // callback_init() failed, wait for exit
-        while (true) sleep(1000);
+        while (true) pause();
     }
     bf_sem_waitmsg(&glob.cbpipe_s, &bool_msg, 1);
     if (bf_is_fork_mode()) {
@@ -663,18 +666,14 @@ callback_process(int n_subdevs[2],
     bf_sem_postmsg(&glob.cbpipe_r, &bool_msg, 1);
     if (!bool_msg) {
         // could not get buffers, wait for exit
-        while (true) sleep(1000);
+        while (true) pause();
     }
     if (bfconf->realtime_priority) {
         bf_make_realtime(bfconf->realtime_midprio, "callback");
     }
     while (true) {
-#warning removal of this break problematic?
         uint8_t msg;
         bf_sem_waitmsg(&glob.cbpipe_s, &msg, 1);
-        //if (!readfd(cbpipe_s[0], &msg, 1)) {
-        //    break;
-        //}
         switch ((int)msg) {
         case CB_MSG_START:
             for (int n = 0; n < bfconf->n_iomods; n++) {
@@ -687,7 +686,8 @@ callback_process(int n_subdevs[2],
                 }
             }
             if (wpid != NULL) {
-                bf_wait_for_process_end(*wpid);
+                // just for cleanup of zombie, not for synchronization
+                waitpid(*wpid, NULL, 0);
             }
             break;
         case CB_MSG_STOP:
@@ -706,13 +706,12 @@ callback_process(int n_subdevs[2],
             break;
         }
     }
-    while (true) sleep(1000);
+    while (true) pause();
 }
 
 struct callback_process_thread_args {
     int n_subdevs[2];
     struct dai_subdevice *subdevs[2];
-    bf_pid_t wpid;
 };
 
 static void
@@ -720,11 +719,11 @@ callback_process_thread(void *arg)
 {
     struct callback_process_thread_args a = *(struct callback_process_thread_args *)arg;
     ca->callback_pid = bf_getpid();
-    bf_set_thread_name("callback-io");
-    callback_process(a.n_subdevs, a.subdevs, bfconf->blocking_io ? NULL : &a.wpid);
+    set_thread_name("callback-io");
+    callback_process(a.n_subdevs, a.subdevs, NULL);
 }
 
-bool_t
+bool
 dai_init(int _period_size,
 	 int rate,
 	 int n_subdevs[2],
@@ -789,7 +788,7 @@ dai_init(int _period_size,
                 bf_pid_t pid = bf_process_id_to_bf_pid(fork_pid);
                 bf_register_process(pid);
                 ca->callback_pid = bf_getpid();
-                callback_process(n_subdevs, subdevs, bfconf->blocking_io ? NULL : &pid);
+                callback_process(n_subdevs, subdevs, bfconf->blocking_io ? NULL : &fork_pid);
             }
         } else {
             struct callback_process_thread_args *cb_args = emalloc(sizeof(*cb_args));
@@ -797,7 +796,6 @@ dai_init(int _period_size,
                 cb_args->n_subdevs[IO] = n_subdevs[IO];
                 cb_args->subdevs[IO] = subdevs[IO];
             }
-            cb_args->wpid = bf_getpid();
             bf_pid_t pid = bf_fork(callback_process_thread, cb_args);
             bf_register_process(pid);
         }
@@ -890,8 +888,8 @@ dai_init(int _period_size,
 
     /* decide if to use input poll mode */
     glob.input_poll_mode = false;
-    bool_t all_bad_alignment = true;
-    bool_t none_clocked = true;
+    bool all_bad_alignment = true;
+    bool none_clocked = true;
     for (int n = 0; n < n_subdevs[IN]; n++) {
         struct subdev *sd = glob.dev[IN][n];
         if (sd->uses_clock && !sd->uses_callback) {
@@ -943,13 +941,13 @@ dai_minblocksize(void)
     return size;
 }
 
-bool_t
+bool
 dai_input_poll_mode(void)
 {
     return glob.input_poll_mode;
 }
 
-bool_t
+bool
 dai_isinit(void)
 {
     return (dai_buffer_format[IN] != NULL);
@@ -1050,7 +1048,7 @@ dai_die(void)
 	return;
     }
 
-    const bool_t iscallback = bf_pid_equal(bf_getpid(), ca->callback_pid);
+    const bool iscallback = bf_pid_equal(bf_getpid(), ca->callback_pid);
 
     if (iscallback) {
         for (int n = 0; n < bfconf->n_iomods; n++) {
@@ -1088,8 +1086,8 @@ dai_input(volatile struct debug_input dbg[],
           volatile int *dbg_loops)
 {
     static struct {
-        bool_t isfirst;
-        bool_t startmeasure;
+        bool isfirst;
+        bool startmeasure;
         int buf_index;
         int frames;
         int curbuf;
@@ -1115,7 +1113,7 @@ dai_input(volatile struct debug_input dbg[],
             }
 	}
 	/* There is no more data to read, just sleep and let the output process end all processes. */
-	while (true) sleep(1000);
+	while (true) pause();
     }
 
     if (st.isfirst) {
@@ -1144,7 +1142,7 @@ dai_input(volatile struct debug_input dbg[],
     int devsleft = glob.n_fd_devs[IN];
     fd_set rfds = glob.dev_fds[IN];
     int minleft = glob.period_size;
-    bool_t firstloop = true;
+    bool firstloop = true;
     while (devsleft != 0) {
         fd_set readfds = rfds;
 	FD_SET(glob.paramspipe_s[IN][0], &readfds);
@@ -1348,15 +1346,15 @@ dai_input(volatile struct debug_input dbg[],
 }
 
 void
-dai_output(bool_t iodelay_fill,
+dai_output(bool iodelay_fill,
            bf_sem_t *synch_fd,
            volatile struct debug_output dbg[],
            int dbg_len,
            volatile int *dbg_loops)
 {
     static struct {
-        bool_t isfirst;
-        bool_t islast;
+        bool isfirst;
+        bool islast;
         int buf_index;
         int curbuf;
         fd_set readfds;
@@ -1542,7 +1540,7 @@ dai_output(bool_t iodelay_fill,
         if (output_finish()) {
             bf_exit(BF_EXIT_OK);
         } else {
-            while (true) sleep(1000);
+            while (true) pause();
         }
     }
 
@@ -1580,7 +1578,7 @@ static void
 process_callback_output(struct subdev *sd,
                         void *cbbufs[],
                         int frame_count,
-                        bool_t iodelay_fill)
+                        bool iodelay_fill)
 {
     uint8_t *buf = (uint8_t *)glob.iobuffers[OUT][sd->cb.curbuf];
 
@@ -1704,7 +1702,7 @@ process_callback(void **states[2],
 
         struct subdev *sd = (struct subdev *)states[IN][0];
         if (sd->buf_left == 0) {
-            bool_t finished = true;
+            bool finished = true;
             for (int n = 0; n < glob.n_devs[IN]; n++) {
                 sd = glob.dev[IN][n];
                 if (sd->uses_callback && sd->buf_left != 0) {
@@ -1735,10 +1733,10 @@ process_callback(void **states[2],
 
         cbmutex(OUT, true);
 
-        bool_t unlock_output = false;
+        bool unlock_output = false;
         sd = (struct subdev *)states[OUT][0];
         if (sd->buf_left == 0 && sd->cb.iodelay_fill == 0) {
-            bool_t finished = true;
+            bool finished = true;
             for (int n = 0; n < glob.n_devs[OUT]; n++) {
                 sd = glob.dev[OUT][n];
                 if (sd->uses_callback &&
