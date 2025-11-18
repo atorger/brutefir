@@ -49,8 +49,6 @@ BFIO_FILE_OBJS	= bfio_file.fpic.o
 BFIO_ALSA_LIBS	= -lasound
 BFIO_ALSA_OBJS	= bfio_alsa.fpic.o emalloc.fpic.o inout.fpic.o
 
-BFIO_OSS_OBJS	= bfio_oss.fpic.o emalloc.fpic.o
-
 BFIO_JACK_LIBS	= -ljack
 BFIO_JACK_OBJS	= bfio_jack.fpic.o emalloc.fpic.o inout.fpic.o
 
@@ -90,17 +88,7 @@ LDMULTIPLEDEFS	= -Xlinker --allow-multiple-definition
 ifeq ($(UNAME),Linux)
 LIB_TARGETS	+= alsa.bfio
 endif
-LIB_TARGETS	+= oss.bfio
 LIB_TARGETS	+= jack.bfio
-endif
-
-# FreeBSD
-ifeq ($(UNAME),FreeBSD)
-ifeq ($(UNAME_M),i386)
-BRUTEFIR_OBJS	+= $(BRUTEFIR_IA32_OBJS)
-endif
-# assume that we have oss
-LIB_TARGETS	+= oss.bfio
 endif
 
 TARGETS		= $(BIN_TARGETS) $(LIB_TARGETS)
@@ -130,10 +118,6 @@ alsa.bfio: $(BFIO_ALSA_OBJS)
 	$(LD) $(LD_SHARED) $(LDFLAGS) $(CC_FPIC) $(LIBPATHS) -o $@ $(BFIO_ALSA_OBJS) $(BFIO_ALSA_LIBS) -lc
 	$(CHMOD) $(CHMOD_REMOVEX) $@
 
-oss.bfio: $(BFIO_OSS_OBJS)
-	$(LD) $(LD_SHARED) $(LDFLAGS) $(CC_FPIC) $(LIBPATHS) -o $@ $(BFIO_OSS_OBJS) -lc
-	$(CHMOD) $(CHMOD_REMOVEX) $@
-
 jack.bfio: $(BFIO_JACK_OBJS)
 	$(LD) $(LD_SHARED) $(LDFLAGS) $(CC_FPIC) $(LIBPATHS) -o $@ $(BFIO_JACK_OBJS) $(BFIO_JACK_LIBS) -lc
 	$(CHMOD) $(CHMOD_REMOVEX) $@
@@ -157,5 +141,5 @@ install: $(BIN_TARGETS) $(LIB_TARGETS)
 
 clean:
 	rm -f *.core core bfconf_lexical.c $(BRUTEFIR_OBJS) $(BFIO_FILE_OBJS)  \
-$(BFLOGIC_CLI_OBJS) $(BFLOGIC_EQ_OBJS) $(BFIO_ALSA_OBJS) $(BFIO_OSS_OBJS) \
+$(BFLOGIC_CLI_OBJS) $(BFLOGIC_EQ_OBJS) $(BFIO_ALSA_OBJS) \
 $(BFIO_JACK_OBJS) $(TARGETS)
