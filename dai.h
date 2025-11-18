@@ -1,26 +1,27 @@
 /*
- * (c) Copyright 2001 - 2003, 2005 -- Anders Torger
+ * (c) Copyright 2001 - 2003, 2005, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
  */
-#ifndef _DAI_H_
-#define _DAI_H_
+#ifndef DAI_H_
+#define DAI_H_
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <inttypes.h>
 
-#include "defs.h"
 #include "inout.h"
 #include "bfmod.h"
+#include "bfconcurrency.h"
 
 /* digital audio interface */
 
 struct sample_format {
-    bool_t isfloat;
-    bool_t swap;
+    bool isfloat;
+    bool swap;
     int bytes;
     int sbytes;
     double scale;
@@ -38,7 +39,7 @@ struct dai_channels {
     /* how many channels to open (on device level) */
     int open_channels;
     /* how many channels of the opened channels that are used (on device level)
-       used_channels <= open_channels */    
+       used_channels <= open_channels */
     int used_channels;
     /* array (used_channels elements long) which contains the channel indexes
        on device level (0 <= index < open_channels) of the used channels. */
@@ -52,7 +53,7 @@ struct dai_channels {
 struct dai_subdevice {
     struct dai_channels channels;
     void *params;
-    bool_t uses_clock;
+    bool uses_clock;
     int sched_policy;
     struct sched_param sched_param;
     int module;
@@ -117,7 +118,7 @@ struct debug_output {
  * The subdevs structures are used internally, so they must not be deallocated
  * nor modified.
  */
-bool_t
+bool
 dai_init(int period_size, /* in samples, must be a power of two */
 	 int rate,
 	 int n_subdevs[2],
@@ -137,8 +138,8 @@ dai_input(volatile struct debug_input dbg[],
  * Always full fragment size. Buffer area not filled with samples must be zero.
  */
 void
-dai_output(bool_t iodelay_fill,
-           int synch_fd,
+dai_output(bool iodelay_fill,
+           bf_sem_t *synch_fd,
            volatile struct debug_output dbg[],
            int dbg_len,
            volatile int *dbg_loops);
@@ -149,15 +150,15 @@ dai_trigger_callback_io(void);
 int
 dai_minblocksize(void);
 
-bool_t
+bool
 dai_input_poll_mode(void);
 
-bool_t
+bool
 dai_isinit(void);
 
 void
 dai_toggle_mute(int io,
-		int channel);  
+		int channel);
 
 int
 dai_change_delay(int io,
