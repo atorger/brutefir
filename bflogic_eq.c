@@ -20,7 +20,6 @@
 #include "bfmod.h"
 #include "emalloc.h"
 #include "shmalloc.h"
-#include "defs.h"
 #include "log2.h"
 #include "bit.h"
 #include "fdrw.h"
@@ -34,13 +33,16 @@
 #define CMD_CHANGE_PHASE 2
 #define CMD_GET_INFO 3
 
+typedef uintptr_t wordbool_t;
+typedef intptr_t wordint_t;
+
 struct realtime_eq {
     void *ifftplan;
     int band_count;
     int taps;
-    volatile int coeff[2];
-    volatile int active_coeff;
-    volatile bool_t not_changed;
+    volatile wordint_t coeff[2];
+    volatile wordint_t active_coeff;
+    volatile wordbool_t not_changed;
     double *freq;
     double *mag;
     double *phase;
@@ -59,7 +61,7 @@ static int n_filters;
 static const struct bfcoeff *coeffs;
 static char *debug_dump_filter_path = NULL;
 static int cmdpipe[2], cmdpipe_reply[2];
-static bool_t debug = false;
+static bool debug = false;
 static void *rbuf;
 
 #define real_t float
@@ -118,7 +120,7 @@ coeff_final(int filter,
     }
 }
 
-static bool_t
+static bool
 finalise_equaliser(struct realtime_eq *eq,
                    double mfreq[],
                    double mag[],
@@ -177,20 +179,20 @@ finalise_equaliser(struct realtime_eq *eq,
     for (n = i = 0; n < 2; n++) {
         if (!coeffs[eq->coeff[n]].is_shared) {
             fprintf(stderr, "EQ: Coefficient %d must be in shared memory.\n",
-                    eq->coeff[n]);
+                    (int)eq->coeff[n]);
             return false;
         }
         if ((i = log2_get(block_length * coeffs[eq->coeff[n]].n_blocks)) == -1)
         {
             fprintf(stderr, "EQ: Coefficient %d length is not a power "
-                    "of two.\n", eq->coeff[n]);
+                    "of two.\n", (int)eq->coeff[n]);
             return false;
         }
     }
     eq->taps = 1 << i;
     if (coeffs[eq->coeff[0]].n_blocks != coeffs[eq->coeff[1]].n_blocks) {
         fprintf(stderr, "EQ: Coefficient %d and %d must be the same length.\n",
-                eq->coeff[0], eq->coeff[1]);
+                (int)eq->coeff[0], (int)eq->coeff[1]);
         return false;
     }
     return true;
@@ -656,10 +658,10 @@ bflogic_init(struct bfaccess *_bfaccess,
             p = rmsg;
             memset(rmsg, 0, sizeof(rmsg));
             if (eq->coeff[0] == eq->coeff[1]) {
-                sprintf(p, "coefficient %d:\n band: ", eq->coeff[0]);
+                sprintf(p, "coefficient %d:\n band: ", (int)eq->coeff[0]);
             } else {
                 sprintf(p, "coefficient %d,%d:\n band: ",
-                        eq->coeff[0], eq->coeff[1]);
+                        (int)eq->coeff[0], (int)eq->coeff[1]);
             }
             p += strlen(p);
             for (n = 1; n < eq->band_count - 1; n++) {
