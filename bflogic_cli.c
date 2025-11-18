@@ -25,7 +25,6 @@
 #include "timermacros.h"
 #include "compat.h"
 #include "bfmod.h"
-#include "defs.h"
 #include "log2.h"
 #include "bit.h"
 #include "inout.h"
@@ -112,15 +111,15 @@ static struct bfaccess *bfaccess;
 static int n_maxblocks;
 static int block_length;
 
-static bool_t print_peak_updates = false;
-static bool_t print_prompt = true;
-static bool_t print_commands = false;
-static bool_t debug = false;
+static bool print_peak_updates = false;
+static bool print_prompt = true;
+static bool print_commands = false;
+static bool debug = false;
 static char error[1024];
 
 struct sleep_task {
-    bool_t do_sleep;
-    bool_t block_sleep;
+    bool do_sleep;
+    bool block_sleep;
     unsigned int blocks;
     unsigned int seconds;
     unsigned int useconds;
@@ -128,10 +127,10 @@ struct sleep_task {
 
 struct state {
     struct bffilter_control fctrl[BF_MAXFILTERS];
-    bool_t fchanged[BF_MAXFILTERS];
+    bool fchanged[BF_MAXFILTERS];
     int delay[2][BF_MAXCHANNELS];
     int subdelay[2][BF_MAXCHANNELS];
-    bool_t toggle_mute[2][BF_MAXCHANNELS];
+    bool toggle_mute[2][BF_MAXCHANNELS];
 };
 
 static struct state newstate;
@@ -210,7 +209,7 @@ commit_changes(FILE *stream)
     }
 }
 
-static bool_t
+static bool
 are_changes(void)
 {
     int n;
@@ -281,7 +280,7 @@ strtrim(char s[])
     return s;
 }
 
-static bool_t
+static bool
 get_id(FILE *stream,
        char str[],
        char **p,
@@ -408,7 +407,7 @@ get_id(FILE *stream,
     return true;
 }
 
-static bool_t
+static bool
 parse_command(FILE *stream,
               char cmd[],
               struct sleep_task *_sleep_task)
@@ -796,6 +795,7 @@ wait_data(FILE *client_stream,
         }
         if (FD_ISSET(callback_fd, &rfds)) {
             if (!readfd(callback_fd, &msg, 4)) {
+                fprintf(stderr, "CLI: callback_fd read failed, exiting.\n");
                 bfaccess->exit(BF_EXIT_OK);
             }
             switch (msg) {
@@ -813,13 +813,13 @@ wait_data(FILE *client_stream,
     } while (!FD_ISSET(client_fd, &rfds));
 }
 
-static bool_t
+static bool
 parse(FILE *stream,
       const char cmd[],
       struct sleep_task *sleep_task)
 {
     char *p, *s, *s1, *buf;
-    bool_t do_quit;
+    bool do_quit;
     int len;
 
     if (sleep_task != NULL) {
@@ -874,10 +874,10 @@ block_start(struct bfaccess *_bfaccess,
             struct timeval *current_time)
 {
     static char *p = NULL, *p1, *p2;
-    static bool_t do_quit = false, do_sleep = false, sleep_block;
+    static bool do_quit = false, do_sleep = false, sleep_block;
     static unsigned int sleep_block_index;
     static struct timeval sleep_time;
-    static bool_t retchr, cmdchr;
+    static bool retchr, cmdchr;
     static char restore_char;
 
     struct sleep_task sleep_task;
