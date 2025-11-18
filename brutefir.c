@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006, 2009, 2013, 2016 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2009, 2013, 2016, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -13,15 +13,13 @@
 #include <sys/stat.h>
 
 #include "emalloc.h"
+#include "shmalloc.h"
 #include "bfconf.h"
 #include "pinfo.h"
 #include "bfmod.h"
 
 #define PRESENTATION_STRING \
-"\n\
-BruteFIR v1.0o (November 2016)                                \
-(c) Anders Torger\n\
-\n"
+"\nBruteFIR v1.1.0 (November 2025)\n\n"
 
 #define USAGE_STRING \
 "Usage: %s [-quiet] [-nodefault] [-daemon] [configuration file]\n"
@@ -31,9 +29,9 @@ main(int argc,
      char *argv[])
 {
     char *config_filename = NULL;
-    bool_t quiet = false;
-    bool_t nodefault = false;
-    bool_t run_as_daemon = false;
+    bool quiet = false;
+    bool nodefault = false;
+    bool run_as_daemon = false;
     int n;
 
     for (n = 1; n < argc; n++) {
@@ -55,15 +53,19 @@ main(int argc,
 	fprintf(stderr, USAGE_STRING, argv[0]);
 	return BF_EXIT_INVALID_CONFIG;
     }
-    
+
     if (!quiet) {
 	fprintf(stderr, PRESENTATION_STRING);
     }
-    
+
     emalloc_set_exit_function(bf_exit, BF_EXIT_NO_MEMORY);
-    
+
     bfconf_init(config_filename, quiet, nodefault);
 
+    /*
+      Note 2025: run as deamon should be considered a legacy option, today running
+      normally and use systemd to manage daemon mode makes more sense.
+    */
     if (run_as_daemon) {
         switch (fork()) {
         case 0:
@@ -84,7 +86,7 @@ main(int argc,
         }
         umask(0);
     }
-    
+
     /* start! */
     bfrun();
 
