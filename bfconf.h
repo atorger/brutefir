@@ -16,8 +16,6 @@
 #include "dither.h"
 #include "timestamp.h"
 
-#define DEFAULT_BFCONF_NAME "~/.brutefir_defaults"
-
 struct bfconf {
     double cpu_mhz;
     int n_cpus;

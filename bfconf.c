@@ -130,9 +130,33 @@ tilde_expansion(const char path[])
     /* FIXME: cleanup the code */
 
     if (path[0] != '~') {
-        strncpy(real_path, path, PATH_MAX);
-        real_path[PATH_MAX-1] = '\0';
-        return real_path;
+        const int xdg_config_len = 16;
+        const int xdg_cache_len = 15;
+        if (strncmp("$XDG_CONFIG_HOME", path, xdg_config_len) == 0) {
+            const char *xdg = getenv("XDG_CONFIG_HOME");
+            if (xdg != NULL && xdg[0] != '\0') {
+                snprintf(real_path, sizeof(real_path), "%s%s", xdg, &path[xdg_config_len]);
+                return real_path;
+            } else {
+                char xdg_path[strlen(path) + 32];
+                snprintf(xdg_path, sizeof(xdg_path), "~/.config%s", &path[xdg_config_len]);
+                return tilde_expansion(xdg_path);
+            }
+        } else if (strncmp("$XDG_CACHE_HOME", path, xdg_cache_len) == 0) {
+            const char *xdg = getenv("XDG_CACHE_HOME");
+            if (xdg != NULL && xdg[0] != '\0') {
+                snprintf(real_path, sizeof(real_path), "%s%s", xdg, &path[xdg_cache_len]);
+                return real_path;
+            } else {
+                char xdg_path[strlen(path) + 32];
+                snprintf(xdg_path, sizeof(xdg_path), "~/.cache%s", &path[xdg_cache_len]);
+                return tilde_expansion(xdg_path);
+            }
+        } else {
+            strncpy(real_path, path, PATH_MAX);
+            real_path[PATH_MAX-1] = '\0';
+            return real_path;
+        }
     }
 
     if ((p = strchr(path, PATH_SEPARATOR_CHAR)) != NULL) {
@@ -181,22 +205,56 @@ tilde_expansion(const char path[])
     return real_path;
 }
 
+static const char *
+default_config_file_path(bool create_config_dir_if_needed)
+{
+    static char xdg_path[PATH_MAX];
+
+    struct stat stbuf;
+    if (create_config_dir_if_needed &&
+        stat(tilde_expansion("$XDG_CONFIG_HOME/BruteFIR"), &stbuf) != 0 &&
+        stat(tilde_expansion("$XDG_CONFIG_HOME"), &stbuf) == 0)
+    {
+        mkdir(tilde_expansion("$XDG_CONFIG_HOME/BruteFIR"), 0755);
+    }
+
+    snprintf(xdg_path, sizeof(xdg_path), "%s", tilde_expansion("$XDG_CONFIG_HOME/BruteFIR/brutefir_defaults.conf"));
+    if (!create_config_dir_if_needed) {
+        struct stat st;
+        const char *legacy_path = tilde_expansion("~/.brutefir_defaults");
+        if (stat(legacy_path, &st) == 0 && stat(xdg_path, &st) != 0) {
+            return legacy_path;
+        }
+    }
+    return xdg_path;
+}
+
 static void
 create_default_config(void)
 {
+    const char *config_path = default_config_file_path(true);
     FILE *stream;
 
-    if ((stream = fopen(tilde_expansion(DEFAULT_BFCONF_NAME), "wt")) == NULL) {
-        fprintf(stderr, "Could not create default configuration file ("
-                DEFAULT_BFCONF_NAME "): %s.\n", strerror(errno));
+    if ((stream = fopen(config_path, "wt")) == NULL) {
+        fprintf(stderr, "Could not create default configuration file \"%s\": %s.\n", config_path, strerror(errno));
         exit(BF_EXIT_OTHER);
     }
+
+#ifdef CONVOLVER_NEEDS_CONFIGFILE
+    struct stat stbuf;
+    if (stat(tilde_expansion("$XDG_CACHE_HOME/BruteFIR"), &stbuf) != 0 &&
+        stat(tilde_expansion("$XDG_CACHE_HOME"), &stbuf) == 0)
+    {
+        mkdir(tilde_expansion("$XDG_CACHE_HOME/BruteFIR"), 0755);
+    }
+#endif
+
     fprintf(stream, "## DEFAULT GENERAL SETTINGS ##\n\
 \n\
 float_bits: 32;             # internal floating point precision\n\
 sampling_rate: 44100;       # sampling rate in Hz of audio interfaces\n\
 filter_length: 65536;       # length of filters\n\
-config_file: \"~/.brutefir_config\"; # standard location of main config file\n\
+config_file: \"$XDG_CONFIG_HOME/BruteFIR/brutefir.conf\"; # standard location of main config file\n\
 overflow_warnings: true;    # echo warnings to stderr if overflow occurs\n\
 show_progress: true;        # echo filtering progress to stderr\n\
 max_dither_table_size: 0;   # maximum size in bytes of precalculated dither\n\
@@ -208,8 +266,7 @@ lock_memory: true;          # try to lock memory if realtime prio is set\n\
 sdf_length: -1;             # subsample filter half length in samples\n\
 safety_limit: 20;           # if non-zero max dB in output before aborting\n"
 #ifdef CONVOLVER_NEEDS_CONFIGFILE
-            "convolver_config: \"~/.brutefir_convolver\"; # location of "
-            "convolver config file\n"
+            "convolver_config: \"$XDG_CACHE_HOME/BruteFIR/brutefir_convolver_wisdom\"; # FFTW wisdom\n"
 #endif
 "\n\
 ## COEFF DEFAULTS ##\n\
@@ -1652,15 +1709,14 @@ get_defaults(void)
 #endif
     int token, io, dummy;
 
-    strcpy(current_filename, tilde_expansion(DEFAULT_BFCONF_NAME));
+    snprintf(current_filename, sizeof(current_filename), "%s", default_config_file_path(false));
 
     if (stat(current_filename, &filestat) != 0) {
         create_default_config();
     }
 
     if ((yyin = fopen(current_filename, "rt")) == NULL) {
-        fprintf(stderr, "Could not open file \"" DEFAULT_BFCONF_NAME
-                "\" for reading.\n");
+        fprintf(stderr, "Could not read default configuration file \"%s\": %s.\n", current_filename, strerror(errno));
         exit(BF_EXIT_OTHER);
     }
 
