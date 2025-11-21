@@ -99,6 +99,60 @@ debug_dump(snd_pcm_t *handle)
 }
 */
 
+static snd_pcm_format_t
+bf_sample_format_to_alsa(int sample_format)
+{
+    switch (sample_format) {
+    case BF_SAMPLE_FORMAT_S8: return SND_PCM_FORMAT_S8;
+    case BF_SAMPLE_FORMAT_S16_LE: return SND_PCM_FORMAT_S16_LE;
+    case BF_SAMPLE_FORMAT_S16_BE: return SND_PCM_FORMAT_S16_BE;
+    case BF_SAMPLE_FORMAT_S24_LE: return SND_PCM_FORMAT_S24_3LE;
+    case BF_SAMPLE_FORMAT_S24_BE: return SND_PCM_FORMAT_S24_3BE;
+    case BF_SAMPLE_FORMAT_S24_4LE: return SND_PCM_FORMAT_S24_LE;
+    case BF_SAMPLE_FORMAT_S24_4BE: return SND_PCM_FORMAT_S24_BE;
+    case BF_SAMPLE_FORMAT_S32_LE: return SND_PCM_FORMAT_S32_LE;
+    case BF_SAMPLE_FORMAT_S32_BE: return SND_PCM_FORMAT_S32_BE;
+    case BF_SAMPLE_FORMAT_FLOAT_LE: return SND_PCM_FORMAT_FLOAT_LE;
+    case BF_SAMPLE_FORMAT_FLOAT_BE: return SND_PCM_FORMAT_FLOAT_BE;
+    case BF_SAMPLE_FORMAT_FLOAT64_LE: return SND_PCM_FORMAT_FLOAT64_LE;
+    case BF_SAMPLE_FORMAT_FLOAT64_BE: return SND_PCM_FORMAT_FLOAT64_BE;
+    default: return -1;
+    }
+}
+
+static int
+alsa_sample_format_to_bf(snd_pcm_format_t sample_format)
+{
+    switch (sample_format) {
+    case SND_PCM_FORMAT_S8: return BF_SAMPLE_FORMAT_S8;
+    case BF_SAMPLE_FORMAT_S16_LE: return SND_PCM_FORMAT_S16_LE;
+    case SND_PCM_FORMAT_S16_BE: return BF_SAMPLE_FORMAT_S16_BE;
+    case SND_PCM_FORMAT_S24_3LE: return BF_SAMPLE_FORMAT_S24_LE;
+    case SND_PCM_FORMAT_S24_3BE: return BF_SAMPLE_FORMAT_S24_BE;
+    case SND_PCM_FORMAT_S24_LE: return BF_SAMPLE_FORMAT_S24_4LE;
+    case SND_PCM_FORMAT_S24_BE: return BF_SAMPLE_FORMAT_S24_4BE;
+    case SND_PCM_FORMAT_S32_LE: return BF_SAMPLE_FORMAT_S32_LE;
+    case SND_PCM_FORMAT_S32_BE: return BF_SAMPLE_FORMAT_S32_BE;
+    case SND_PCM_FORMAT_FLOAT_LE: return BF_SAMPLE_FORMAT_FLOAT_LE;
+    case SND_PCM_FORMAT_FLOAT_BE: return BF_SAMPLE_FORMAT_FLOAT_BE;
+    case SND_PCM_FORMAT_FLOAT64_LE: return BF_SAMPLE_FORMAT_FLOAT64_LE;
+    case SND_PCM_FORMAT_FLOAT64_BE: return BF_SAMPLE_FORMAT_FLOAT64_BE;
+    default: return -1;
+    }
+}
+
+static const char *
+access_mode_name(snd_pcm_access_t mode) {
+    switch (mode) {
+    case SND_PCM_ACCESS_MMAP_INTERLEAVED: return "MMAP_INTERLEAVED";
+    case SND_PCM_ACCESS_MMAP_NONINTERLEAVED: return "MMAP_NONINTERLEAVED";
+    case SND_PCM_ACCESS_MMAP_COMPLEX: return "MMAP_COMPLEX";
+    case SND_PCM_ACCESS_RW_INTERLEAVED: return "RW_INTERLEAVED";
+    case SND_PCM_ACCESS_RW_NONINTERLEAVED: return "RW_NONINTERLEAVED";
+    default: return "##UNKOWN##";
+    }
+}
+
 static bool
 set_params(snd_pcm_t *handle,
            const struct settings *settings,
@@ -117,64 +171,13 @@ set_params(snd_pcm_t *handle,
 	return false;
     }
 
-    int format;
-    switch (sample_format) {
-    case BF_SAMPLE_FORMAT_S8:
-	format = SND_PCM_FORMAT_S8;
-	*sample_size = 1;
-	break;
-    case BF_SAMPLE_FORMAT_S16_LE:
-	format = SND_PCM_FORMAT_S16_LE;
-	*sample_size = 2;
-	break;
-    case BF_SAMPLE_FORMAT_S16_BE:
-	format = SND_PCM_FORMAT_S16_BE;
-	*sample_size = 2;
-	break;
-    case BF_SAMPLE_FORMAT_S24_LE:
-	format = SND_PCM_FORMAT_S24_3LE;
-	*sample_size = 3;
-	break;
-    case BF_SAMPLE_FORMAT_S24_BE:
-	format = SND_PCM_FORMAT_S24_3BE;
-	*sample_size = 3;
-	break;
-    case BF_SAMPLE_FORMAT_S24_4LE:
-	format = SND_PCM_FORMAT_S24_LE;
-	*sample_size = 4;
-	break;
-    case BF_SAMPLE_FORMAT_S24_4BE:
-	format = SND_PCM_FORMAT_S24_BE;
-	*sample_size = 4;
-	break;
-    case BF_SAMPLE_FORMAT_S32_LE:
-	format = SND_PCM_FORMAT_S32_LE;
-	*sample_size = 4;
-	break;
-    case BF_SAMPLE_FORMAT_S32_BE:
-	format = SND_PCM_FORMAT_S32_BE;
-	*sample_size = 4;
-	break;
-    case BF_SAMPLE_FORMAT_FLOAT_LE:
-	format = SND_PCM_FORMAT_FLOAT_LE;
-	*sample_size = 4;
-	break;
-    case BF_SAMPLE_FORMAT_FLOAT_BE:
-	format = SND_PCM_FORMAT_FLOAT_BE;
-	*sample_size = 4;
-	break;
-    case BF_SAMPLE_FORMAT_FLOAT64_LE:
-	format = SND_PCM_FORMAT_FLOAT64_LE;
-	*sample_size = 8;
-	break;
-    case BF_SAMPLE_FORMAT_FLOAT64_BE:
-	format = SND_PCM_FORMAT_FLOAT64_BE;
-	*sample_size = 8;
-	break;
-    default:
+    snd_pcm_format_t format = bf_sample_format_to_alsa(sample_format);
+    if (format == -1) {
+        // should not happen
 	sprintf(errstr, "  Unsupported sample format.\n");
 	return false;
     }
+    *sample_size = bf_sampleformat_size(sample_format);
 
     snd_pcm_sw_params_t *swparams;
     snd_pcm_hw_params_t *params;
@@ -186,9 +189,32 @@ set_params(snd_pcm_t *handle,
 	return false;
     }
 
+    const struct {
+        snd_pcm_access_t mode;
+        bool is_interleaved;
+        bool is_mmap;
+    } access_modes[4] = {
+        { SND_PCM_ACCESS_MMAP_INTERLEAVED, true, true },
+        { SND_PCM_ACCESS_MMAP_NONINTERLEAVED, false, true },
+        { SND_PCM_ACCESS_RW_INTERLEAVED, true, false },
+        { SND_PCM_ACCESS_RW_NONINTERLEAVED, false, true }
+    };
     if (settings->force_access) {
 	if ((err = snd_pcm_hw_params_set_access(handle, params, settings->forced_access_mode)) < 0) {
-	    sprintf(errstr, "  Failed to set forced access mode: %s.\n", snd_strerror(err));
+            char supports[1024];
+            for (int i = 0, offset = 0; i < 4; i++) {
+                if (snd_pcm_hw_params_test_access(handle, params, access_modes[i].mode) >= 0) {
+                    offset += snprintf(&supports[offset], sizeof(supports) - offset, " %s", access_mode_name(access_modes[i].mode));
+                    if (offset >= sizeof(supports) - 1) {
+                        break;
+                    }
+                }
+            }
+	    sprintf(errstr,
+                    "  Failed to set forced access mode to %s: %s.\n"
+                    "  Device supports:%s\n",
+                    access_mode_name(settings->forced_access_mode),
+                    snd_strerror(err), supports);
 	    return false;
 	}
         *isinterleaved =
@@ -199,21 +225,11 @@ set_params(snd_pcm_t *handle,
             settings->forced_access_mode == SND_PCM_ACCESS_MMAP_NONINTERLEAVED ||
             settings->forced_access_mode == SND_PCM_ACCESS_MMAP_COMPLEX;
     } else {
-        const struct {
-            snd_pcm_access_t mode;
-            bool is_interleaved;
-            bool is_mmap;
-        } modes[4] = {
-            { SND_PCM_ACCESS_MMAP_INTERLEAVED, true, true },
-            { SND_PCM_ACCESS_MMAP_NONINTERLEAVED, false, true },
-            { SND_PCM_ACCESS_RW_INTERLEAVED, true, false },
-            { SND_PCM_ACCESS_RW_NONINTERLEAVED, false, true }
-        };
         bool found_mode = false;
         for (int i = 0; i < 4; i++) {
-            if (snd_pcm_hw_params_set_access(handle, params, modes[i].mode) >= 0) {
-                *isinterleaved = modes[i].is_interleaved;
-                *ismmap = modes[i].is_mmap;
+            if (snd_pcm_hw_params_set_access(handle, params, access_modes[i].mode) >= 0) {
+                *isinterleaved = access_modes[i].is_interleaved;
+                *ismmap = access_modes[i].is_mmap;
                 found_mode = true;
                 break;
             }
@@ -224,7 +240,6 @@ set_params(snd_pcm_t *handle,
 	    return false;
 	}
     }
-
 
     unsigned int un;
     /* It seems like it is best to set_rate_near instead of exact, have had problems with ens1371 */
@@ -242,11 +257,43 @@ set_params(snd_pcm_t *handle,
     }
 
     if ((err = snd_pcm_hw_params_set_format(handle, params, format)) < 0) {
-	sprintf(errstr, "  Failed to set sample format to %s: %s.\n", bf_strsampleformat(sample_format), snd_strerror(err));
+        char supports[4096];
+        int offset = 0;
+        supports[0] = '\0';
+        for (snd_pcm_format_t fmt = 0; fmt < SND_PCM_FORMAT_LAST; fmt++) {
+            if (snd_pcm_format_name(fmt) != NULL && (snd_pcm_hw_params_test_format(handle, params, fmt) == 0)) {
+                const char *str;
+                if (alsa_sample_format_to_bf(fmt) != -1) {
+                    str = bf_strsampleformat(alsa_sample_format_to_bf(fmt));
+                } else {
+                    str = snd_pcm_format_name(fmt); // should not be common...
+                }
+                offset += snprintf(&supports[offset], sizeof(supports) - offset, " %s", str);
+                if (offset >= sizeof(supports) - 1) {
+                    break;
+                }
+            }
+        }
+        sprintf(errstr,
+                "  Failed to set sample format to %s: %s.\n"
+                "  Device supports:%s\n",
+                bf_strsampleformat(sample_format), snd_strerror(err), supports);
 	return false;
     }
     if ((err = snd_pcm_hw_params_set_channels(handle, params, open_channels)) < 0) {
-	sprintf(errstr, "  Failed to set channel count to %d: %s.\n", open_channels, snd_strerror(err));
+        char supports[2048];
+        for (int ch = 1, offset = 0; ch <= 256; ch++) {
+            if (snd_pcm_hw_params_test_channels(handle, params, ch) == 0) {
+                offset += snprintf(&supports[offset], sizeof(supports) - offset, " %d", ch);
+                if (offset >= sizeof(supports) - 1) {
+                    break;
+                }
+            }
+        }
+	sprintf(errstr,
+                "  Failed to set channel count to %d: %s.\n"
+                "  Device supports:%s\n",
+                open_channels, snd_strerror(err), supports);
 	return false;
     }
 
