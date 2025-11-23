@@ -13,8 +13,10 @@ This is legacy project but is still maintained as it has become a
 popular reference no-nonsense convolution engine.
 
 This github repository is "raw" available just for reference and to
-make easier to handle bug reports. For users it's better to use the
-actual releases (made with "make distrib") which is available for
-download on the project's homepage:
+make easier to handle bug reports. The github workflow for releases
+and packages is not used.
+
+For users it's better to use the actual releases (made with "make
+distrib") which is available for download on the project's homepage:
 
 https://www.torger.se/anders/brutefir.html
