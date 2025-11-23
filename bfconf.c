@@ -37,6 +37,9 @@
 #include "delay.h"
 #include "compat.h"
 
+#define STRINGIFY(a) STRINGIFY_HELPER(a)
+#define STRINGIFY_HELPER(a) #a
+
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
@@ -258,9 +261,11 @@ config_file: \"$XDG_CONFIG_HOME/BruteFIR/brutefir.conf\"; # standard location of
 overflow_warnings: true;    # echo warnings to stderr if overflow occurs\n\
 show_progress: true;        # echo filtering progress to stderr\n\
 max_dither_table_size: 0;   # maximum size in bytes of precalculated dither\n\
-allow_poll_mode: false;     # allow use of input poll mode\n\
-modules_path: \".\";          # extra path where to find BruteFIR modules\n\
-monitor_rate: false;        # monitor sample rate\n\
+allow_poll_mode: false;     # allow use of input poll mode\n"
+#ifndef SINGLE_MOD_PATH
+"modules_path: \".\";          # extra path where to find BruteFIR modules\n"
+#endif
+"monitor_rate: false;        # monitor sample rate\n\
 powersave: false;           # pause filtering when input is zero\n\
 lock_memory: true;          # try to lock memory if realtime prio is set\n\
 sdf_length: -1;             # subsample filter half length in samples\n\
@@ -1582,6 +1587,15 @@ parse_setting(char field[],
         bfconf->lock_memory = yylval.boolean;
         get_token(EOS);
     } else if (strcmp(field, "modules_path") == 0) {
+#ifdef SINGLE_MOD_PATH
+        field_repeat_test(repeat_bitset, 9);
+        get_token(STRING);
+        get_token(EOS);
+        fprintf(stderr, "\"modules_path\" setting ignored as this binary was compiled\n"
+                "  with SINGLE_MOD_PATH=\"%s\".\n",
+                STRINGIFY(SINGLE_MOD_PATH));
+        modules_path = NULL;
+#else
         field_repeat_test(repeat_bitset, 9);
         get_token(STRING);
         if (modules_path == NULL) {
@@ -1594,6 +1608,7 @@ parse_setting(char field[],
             modules_path[n + 1] = '\0';
         }
         get_token(EOS);
+#endif
     } else if (strcmp(field, "monitor_rate") == 0) {
         field_repeat_test(repeat_bitset, 10);
         get_token(BOOLEAN);
@@ -2127,6 +2142,24 @@ find_module(char path[],
 {
     struct stat filestat;
 
+#ifdef SINGLE_MOD_PATH
+    const char *sep;
+    if (STRINGIFY(SINGLE_MOD_PATH)[strlen(STRINGIFY(SINGLE_MOD_PATH))-1] == '/') {
+        sep = "";
+    } else {
+        sep = "/";
+    }
+    sprintf(path, "%s%s%s%s", STRINGIFY(SINGLE_MOD_PATH), sep, name, suffix);
+    if (stat(path, &filestat) == 0) {
+        return;
+    }
+    fprintf(stderr,
+            "Failed to find module \"%s\".\n"
+            "  This binary was compiled with SINGLE_MOD_PATH=\"%s\"\n"
+            "  so the \"%s\" module must be at \"%s\".\n",
+            name, STRINGIFY(SINGLE_MOD_PATH), name, path);
+    exit(BF_EXIT_OTHER);
+#else
     if (modules_path != NULL) {
         sprintf(path, "%s%s%s", modules_path, name, suffix);
     }
@@ -2159,6 +2192,7 @@ find_module(char path[],
     fprintf(stderr, "  \"/usr/lib/brutefir/%s%s\"\n", name, suffix);
     fprintf(stderr, "  \"/usr/lib/%s%s\"\n", name, suffix);
     exit(BF_EXIT_OTHER);
+#endif
 }
 
 static void
