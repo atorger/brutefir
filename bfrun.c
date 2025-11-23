@@ -2030,7 +2030,7 @@ logicmod_fork_child(void *arg)
     struct logicmod_fork_child_args a = *(struct logicmod_fork_child_args *)arg;
 
     char name[64];
-    snprintf(name, sizeof(name), "logic-%s", bfconf->ionames[a.mod_index]);
+    snprintf(name, sizeof(name), "logic-%s", bfconf->logicnames[a.mod_index]);
     set_thread_name(name);
     efree(arg);
     if (bfconf->realtime_priority) {
