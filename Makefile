@@ -57,7 +57,7 @@ BFIO_JACK_LIBS	= -ljack
 BFIO_JACK_OBJS	= $(BUILDDIR)/bfio_jack.fpic.o
 BFIO_PIPEWIRE_LIBS = -lpipewire-0.3
 BFIO_PIPEWIRE_OBJS = $(BUILDDIR)/bfio_pipewire.fpic.o $(BUILDDIR)/compat.fpic.o
-#BFIO_FILECB_OBJS = $(BUILDDIR)/bfio_filecb.fpic.o $(BUILDDIR)/emalloc.fpic.o
+BFIO_FILECB_OBJS = $(BUILDDIR)/bfio_filecb.fpic.o $(BUILDDIR)/emalloc.fpic.o
 BFLOGIC_CLI_OBJS = $(BUILDDIR)/bflogic_cli.fpic.o $(BUILDDIR)/compat.fpic.o
 #BFLOGIC_TEST_OBJS = bflogic_test.fpic.o shmalloc.fpic.o
 #BFLOGIC_XTC_OBJS = bflogic_xtc.fpic.o emalloc.fpic.o
@@ -71,10 +71,6 @@ BASE_TARGETS	= \
     $(BUILDDIR)/eq.bflogic
 TARGETS		= $(BASE_TARGETS)
 
-#
-# Specific Linux settings
-#
-ifeq ($(UNAME),Linux)
 LDMULTIPLEDEFS	= -Xlinker --allow-multiple-definition
 ifeq ($(UNAME_M),i586)
 BRUTEFIR_OBJS	+= $(BRUTEFIR_SSE_OBJS)
@@ -88,10 +84,8 @@ ifeq ($(UNAME_M),x86_64)
 BRUTEFIR_OBJS	+= $(BRUTEFIR_SSE_OBJS)
 CC_FLAGS	+= -msse
 endif
-TARGETS	+= alsa.bfio
-endif
 
-TARGETS += $(BUILDDIR)/pipewire.bfio $(BUILDDIR)/jack.bfio $(BUILDDIR)/filecb.bfio
+TARGETS += $(BUILDDIR)/alsa.bfio $(BUILDDIR)/pipewire.bfio $(BUILDDIR)/jack.bfio $(BUILDDIR)/filecb.bfio
 
 all: $(TARGETS)
 
