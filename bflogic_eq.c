@@ -177,11 +177,12 @@ finalise_equaliser(struct realtime_eq *eq,
     }
     eq->band_count = band_count;
     for (n = i = 0; n < 2; n++) {
+        /* Note 2025: disable this check as BruteFIR is nowadays threaded
         if (!coeffs[eq->coeff[n]].is_shared) {
-            fprintf(stderr, "EQ: Coefficient %d must be in shared memory.\n",
-                    (int)eq->coeff[n]);
+            fprintf(stderr, "EQ: Coefficient %d must be in shared memory.\n", (int)eq->coeff[n]);
             return false;
         }
+        */
         if ((i = log2_get(block_length * coeffs[eq->coeff[n]].n_blocks)) == -1)
         {
             fprintf(stderr, "EQ: Coefficient %d length is not a power "
