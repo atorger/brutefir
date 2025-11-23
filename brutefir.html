@@ -94,7 +94,7 @@
   Other old school features are kept though, like the C-library based
   module interface and the command line interface, and in essence it's
   compatible with older versions and configuration files. If you have
-  custom modules you probably need to at least recompile them though.
+  custom modules you need to at least recompile them though.
 </p>
 <p>
   On to the details of this 1.1.0 release:
@@ -107,6 +107,57 @@
     <li>
       Open source license changed from GPL to ISC, to make it easier
       to use by commercial projects.
+    </li>
+    <li>
+      Change versioning system to major.minor.patch.
+    </li>
+    <li>
+       Change license from GPL to ISC License (ISC) to make it easier
+       to use in commercial projects.
+    </li>
+    <li>
+      New I/O module: PipeWire I/O.
+    </li>
+    <li>
+      Use XDG_CONFIG_HOME and XDG_CACHE_CONFIG ~/.config/ and ~/.cache/
+      for default config and FFTW wisdom respectively.
+    </li>
+    <li>
+      Add optional SINGLE_MOD_PATH compile flag to lock modules path to
+      one directory (like /usr/lib/brutefir), which is recommended when
+      building a package for a Linux distro.
+    </li>
+    <li>
+      ALSA I/O: add support for mmap modes.
+    </li>
+    <li>
+      ALSA I/O: add "access" option to ALSA I/O module to force a
+      specific access mode, often necessary with the ALSA Loopback driver.
+    </li>
+    <li>
+      ALSA I/O: switch input devices to input mode if they falsely always
+      report data available (PipeWire/virtual device workaround).
+    </li>
+    <li>
+      ALSA I/O: better error messages for incompatible parameters.
+    </li>
+    <li>
+      Very minor changes to integration APIs due to threaded model.
+    </li>
+    <li>
+      Make code C99 compliant (with a bit of POSIX).
+    </li>
+    <li>
+      JACK I/O: print error message for dynamic buffer sizes.
+    </li>
+    <li>
+      Remove Sparc/SunOS and FreeBSD-specific code.
+    </li>
+    <li>
+      Remove obsolete OSS I/O module.
+    </li>
+    <li>
+      Fix minor dither bug.
     </li>
     <li>The documentation of this page has been refreshed and
     simplified. Old documentation still left in
