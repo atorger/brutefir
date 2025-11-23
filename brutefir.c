@@ -19,7 +19,7 @@
 #include "bfmod.h"
 
 #define PRESENTATION_STRING \
-"\nBruteFIR v1.1.0 (November 2025)\n\n"
+"BruteFIR v1.1.0\n"
 
 #define USAGE_STRING \
 "Usage: %s [-quiet] [-nodefault] [-daemon] [configuration file]\n"
@@ -41,6 +41,10 @@ main(int argc,
             nodefault = true;
 	} else if (strcmp(argv[n], "-daemon") == 0) {
             run_as_daemon = true;
+	} else if (strcmp(argv[n], "-h") == 0 || strcmp(argv[n], "--help") == 0) {
+            fprintf(stderr, PRESENTATION_STRING);
+            fprintf(stderr, USAGE_STRING, argv[0]);
+            return BF_EXIT_INVALID_CONFIG;
 	} else {
 	    if (config_filename != NULL) {
 		break;
