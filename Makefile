@@ -4,9 +4,13 @@ LIBPATHS	= #-L/usr/local/lib
 INCLUDE		= #-I/usr/local/include -I/usr/include/pipewire-0.3
 INCLUDE		+= -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2
 
+# Package maintaners: it's recommended to activate SINGLE_MOD_PATH to disallow loading modules
+# from any location
+DEFINE		= #-DSINGLE_MOD_PATH=/usr/lib/brutefir
+
 FFTW_LIB	= -lfftw3 -lfftw3f
 
-BRUTEFIR_VERSION = 1.0o
+BRUTEFIR_VERSION = 1.1.0
 UNAME	= $(shell uname)
 UNAME_M = $(shell uname -m)
 FLEX	= flex
@@ -14,14 +18,13 @@ LD	= gcc
 CC	= gcc
 CHMOD	= chmod
 GNUTAR	= tar
-CHECKER	= $(CC) #checkergcc
 CC_WARNINGS	= -Wall -Wpointer-arith -Wshadow \
 -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes \
 -Wmissing-declarations -Wnested-externs -Wredundant-decls \
 -Wdisabled-optimization
-CC_OPTIMISE	= -O0
+CC_OPTIMISE	= -O2
 CC_STD          = -std=c99 -D_POSIX_C_SOURCE=200809L
-CC_FLAGS	= $(CC_STD) $(DEFINE) $(CC_OPTIMISE) -g
+CC_FLAGS	= $(DEFINE) $(CC_STD) $(CC_OPTIMISE) -g
 FPIC		= -fPIC
 LDSHARED	= -shared
 CHMOD_REMOVEX	= -x
@@ -75,14 +78,14 @@ TARGETS += pipewire.bfio jack.bfio filecb.bfio
 all: $(TARGETS)
 
 %.fpic.o: %.c
-	$(CHECKER) -o $@			-c $(INCLUDE) $(CC_WARNINGS) $(CC_FLAGS) $(FPIC) $<
+	$(CC) -o $@			-c $(INCLUDE) $(CC_WARNINGS) $(CC_FLAGS) $(FPIC) $<
 
 %.o: %.c
-	$(CHECKER) -o $@			-c $(INCLUDE) $(CC_WARNINGS) $(CC_FLAGS) $<
+	$(CC) -o $@			-c $(INCLUDE) $(CC_WARNINGS) $(CC_FLAGS) $<
 
 # special rule to avoid some warnings
 bfconf_lexical.o: bfconf_lexical.c
-	$(CHECKER) -o $@			-c $(CC_FLAGS) $<
+	$(CC) -o $@			-c $(CC_FLAGS) $<
 
 %.c: %.lex
 	$(FLEX) -o$@ $<
@@ -90,7 +93,7 @@ bfconf_lexical.o: bfconf_lexical.c
 shared_stuff:
 
 brutefir: $(BRUTEFIR_OBJS)
-	$(CHECKER) $(LIBPATHS) $(LDMULTIPLEDEFS) -o $@ $(BRUTEFIR_OBJS) $(BRUTEFIR_LIBS)
+	$(CC) $(LIBPATHS) $(LDMULTIPLEDEFS) -o $@ $(BRUTEFIR_OBJS) $(BRUTEFIR_LIBS)
 
 alsa.bfio: $(BFIO_ALSA_OBJS)
 	$(LD) $(LDSHARED) $(FPIC) $(LIBPATHS) -o $@ $(BFIO_ALSA_OBJS) $(BFIO_ALSA_LIBS) -lc
@@ -134,67 +137,72 @@ hrtf.bflogic: $(BFLOGIC_HRTF_OBJS)
 
 distrib: all
 	[ -d brutefir-$(BRUTEFIR_VERSION) ] || mkdir brutefir-$(BRUTEFIR_VERSION)
+	[ -d brutefir-$(BRUTEFIR_VERSION)/src ] || mkdir brutefir-$(BRUTEFIR_VERSION)/src
+	[ -d brutefir-$(BRUTEFIR_VERSION)/examples ] || mkdir brutefir-$(BRUTEFIR_VERSION)/examples
+	cp brutefir.html brutefir-$(BRUTEFIR_VERSION)
+	cp brutefir-archive.html brutefir-$(BRUTEFIR_VERSION)
 	cp CHANGES brutefir-$(BRUTEFIR_VERSION)
 	cp LICENSE brutefir-$(BRUTEFIR_VERSION)
-	cp GPL-2.0 brutefir-$(BRUTEFIR_VERSION)
 	cp Makefile.brutefir brutefir-$(BRUTEFIR_VERSION)/Makefile
 	cp README brutefir-$(BRUTEFIR_VERSION)
-	cp asmprot.h brutefir-$(BRUTEFIR_VERSION)
-	cp bench1_config brutefir-$(BRUTEFIR_VERSION)
-	cp bench2_config brutefir-$(BRUTEFIR_VERSION)
-	cp bench3_config brutefir-$(BRUTEFIR_VERSION)
-	cp bench4_config brutefir-$(BRUTEFIR_VERSION)
-	cp bench5_config brutefir-$(BRUTEFIR_VERSION)
-	cp bfconf.c brutefir-$(BRUTEFIR_VERSION)
-	cp bfconf.h brutefir-$(BRUTEFIR_VERSION)
-	cp bfconf_grammar.h brutefir-$(BRUTEFIR_VERSION)
-	cp bfconf_lexical.lex brutefir-$(BRUTEFIR_VERSION)
-	cp bfio_alsa.c brutefir-$(BRUTEFIR_VERSION)
-	cp bfio_file.c brutefir-$(BRUTEFIR_VERSION)
-	cp bfio_jack.c brutefir-$(BRUTEFIR_VERSION)
-	cp bfio_oss.c brutefir-$(BRUTEFIR_VERSION)
-	cp bflogic_cli.c brutefir-$(BRUTEFIR_VERSION)
-	cp bflogic_eq.c brutefir-$(BRUTEFIR_VERSION)
-	cp bfmod.h brutefir-$(BRUTEFIR_VERSION)
-	cp bfrun.c brutefir-$(BRUTEFIR_VERSION)
-	cp bfrun.h brutefir-$(BRUTEFIR_VERSION)
-	cp bit.h brutefir-$(BRUTEFIR_VERSION)
-	cp brutefir.c brutefir-$(BRUTEFIR_VERSION)
-	cp brutefir.html brutefir-$(BRUTEFIR_VERSION)
-	cp convolver.h brutefir-$(BRUTEFIR_VERSION)
-	cp convolver_xmm.c brutefir-$(BRUTEFIR_VERSION)
-	cp crosspath.txt brutefir-$(BRUTEFIR_VERSION)
-	cp dai.c brutefir-$(BRUTEFIR_VERSION)
-	cp dai.h brutefir-$(BRUTEFIR_VERSION)
-	cp defs.h brutefir-$(BRUTEFIR_VERSION)
-	cp delay.c brutefir-$(BRUTEFIR_VERSION)
-	cp delay.h brutefir-$(BRUTEFIR_VERSION)
-	cp directpath.txt brutefir-$(BRUTEFIR_VERSION)
-	cp dither.c brutefir-$(BRUTEFIR_VERSION)
-	cp dither.h brutefir-$(BRUTEFIR_VERSION)
-	cp dither_funs.h brutefir-$(BRUTEFIR_VERSION)
-	cp emalloc.c brutefir-$(BRUTEFIR_VERSION)
-	cp emalloc.h brutefir-$(BRUTEFIR_VERSION)
-	cp fdrw.h brutefir-$(BRUTEFIR_VERSION)
-	cp fftw_convfuns.h brutefir-$(BRUTEFIR_VERSION)
-	cp fftw_convolver.c brutefir-$(BRUTEFIR_VERSION)
-	cp firwindow.c brutefir-$(BRUTEFIR_VERSION)
-	cp firwindow.h brutefir-$(BRUTEFIR_VERSION)
-	cp inout.h brutefir-$(BRUTEFIR_VERSION)
-	cp log2.h brutefir-$(BRUTEFIR_VERSION)
-	cp massive_config brutefir-$(BRUTEFIR_VERSION)
-	cp numunion.h brutefir-$(BRUTEFIR_VERSION)
-	cp pinfo.h brutefir-$(BRUTEFIR_VERSION)
-	cp raw2real.h brutefir-$(BRUTEFIR_VERSION)
-	cp real2raw.h brutefir-$(BRUTEFIR_VERSION)
-	cp rendereq.h brutefir-$(BRUTEFIR_VERSION)
-	cp shmalloc.c brutefir-$(BRUTEFIR_VERSION)
-	cp shmalloc.h brutefir-$(BRUTEFIR_VERSION)
-	cp swap.h brutefir-$(BRUTEFIR_VERSION)
-	cp sysarch.h brutefir-$(BRUTEFIR_VERSION)
-	cp timermacros.h brutefir-$(BRUTEFIR_VERSION)
-	cp timestamp.h brutefir-$(BRUTEFIR_VERSION)
-	cp xtc_config brutefir-$(BRUTEFIR_VERSION)
+	cp bench1_config brutefir-$(BRUTEFIR_VERSION)/examples
+	cp bench2_config brutefir-$(BRUTEFIR_VERSION)/examples
+	cp bench3_config brutefir-$(BRUTEFIR_VERSION)/examples
+	cp bench4_config brutefir-$(BRUTEFIR_VERSION)/examples
+	cp bench5_config brutefir-$(BRUTEFIR_VERSION)/examples
+	cp massive_config brutefir-$(BRUTEFIR_VERSION)/examples
+	cp crosspath.txt brutefir-$(BRUTEFIR_VERSION)/examples
+	cp directpath.txt brutefir-$(BRUTEFIR_VERSION)/examples
+	cp xtc_config brutefir-$(BRUTEFIR_VERSION)/examples
+	cp asmprot.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfconcurrency.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfconcurrency.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfconf.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfconf.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfconf_grammar.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfconf_lexical.lex brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfio_alsa.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfio_file.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfio_jack.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfio_pipewire.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bflogic_cli.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bflogic_eq.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfmod.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfrun.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp bfrun.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp bit.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp brutefir.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp compat.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp compat.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp convolver.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp convolver_xmm.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp dai.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp dai.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp delay.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp delay.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp dither.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp dither.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp dither_funs.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp emalloc.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp emalloc.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp fdrw.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp fftw_convfuns.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp fftw_convolver.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp firwindow.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp firwindow.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp inout.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp log2.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp numunion.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp pinfo.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp raw2real.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp real2raw.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp rendereq.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp shmalloc.c brutefir-$(BRUTEFIR_VERSION)/src
+	cp shmalloc.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp swap.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp sysarch.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp timermacros.h brutefir-$(BRUTEFIR_VERSION)/src
+	cp timestamp.h brutefir-$(BRUTEFIR_VERSION)/src
 	$(MAKE) -C brutefir-$(BRUTEFIR_VERSION) all
 	$(MAKE) -C brutefir-$(BRUTEFIR_VERSION) clean
 	$(GNUTAR) czf brutefir-$(BRUTEFIR_VERSION).tar.gz brutefir-$(BRUTEFIR_VERSION)
@@ -203,7 +211,7 @@ distrib: all
 #bflogic_xtc: $(BFLOGIC_XTC_OBJS)
 #	$(LD) $(LD_FLAGS) $(LIBPATHS) -o xtc.bflogic $(BFLOGIC_XTC_OBJS)
 xtc: $(BFLOGIC_XTC_OBJS)
-	$(CHECKER) $(LIBPATHS) -o $@ $(BFLOGIC_XTC_OBJS) $(MATH_LIB) $(GSL_LIB)
+	$(CC) $(LIBPATHS) -o $@ $(BFLOGIC_XTC_OBJS) $(MATH_LIB) $(GSL_LIB)
 
 clean:
 	rm -f *.core core bfconf_lexical.c $(BRUTEFIR_OBJS) $(BFIO_OSS_OBJS) $(BFIO_JACK_OBJS) $(BFLOGIC_EQ_OBJS) $(BFLOGIC_XTC_OBJS) $(BFLOGIC_HRTF_OBJS) $(BFLOGIC_CLI_OBJS) $(BFIO_ALSA_OBJS) $(BFIO_FILE_OBJS) $(BFIO_FILECB_OBJS) $(BFIO_PIPEWIRE_OBJS)
