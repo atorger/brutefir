@@ -7,7 +7,7 @@ logic: "cli" { echo: false;
 "cfc 0 0; cfc 1 0; cfc 2 0; cfc 3 0; cfc 4 0; cfc 5 0; cfc 6 0; cfc 7 0; cfc 8 0; cfc 9 0; cfc 10 0; cfc 11 0; cfc 12 0; cfc 13 0; cfc 14 0; cfc 15 0; cfc 16 0; cfc 17 0; cfc 18 0; cfc 19 0; cfc 20 0; cfc 21 0; cfc 22 0; cfc 23 0; cfc 24 0; cfc 25 0;
 cfc 0 -1; cfc 1 -1; cfc 2 -1; cfc 3 -1; cfc 4 -1; cfc 5 -1; cfc 6 -1; cfc 7 -1; cfc 8 -1; cfc 9 -1; cfc 10 -1; cfc 11 -1; cfc 12 -1; cfc 13 -1; cfc 14 -1; cfc 15 -1; cfc 16 -1; cfc 17 -1; cfc 18 -1; cfc 19 -1; cfc 20 -1; cfc 21 -1; cfc 22 -1; cfc 23 -1; cfc 24 -1; cfc 25 -1;";
 };
-convolver_config: ".fftw3wisdom";
+convolver_config: "bench_fftw3wisdom";
 
 coeff 0 { filename: "dirac pulse"; };
 

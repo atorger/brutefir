@@ -2,7 +2,7 @@ sampling_rate: 44100;
 filter_length: 8192,8;
 benchmark: true;
 modules_path: ".";
-convolver_config: ".fftw3wisdom";
+convolver_config: "bench_fftw3wisdom";
 
 coeff 0 { filename: "dirac pulse"; };
 
