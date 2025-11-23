@@ -112,6 +112,7 @@ init_callback_(void)
     int policy;
 
     pthread_getschedparam(pthread_self(), &policy, &schp);
+    policy &= 0xFF; // policy might contain Linux-specific SCHED_RESET_ON_FORK flag, so we mask it
     if (policy != SCHED_FIFO && policy != SCHED_RR) {
         fprintf(stderr, "JACK I/O: Warning: JACK is not running with "
                 "SCHED_FIFO or SCHED_RR (realtime).\n");
