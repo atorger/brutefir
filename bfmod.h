@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2025 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -16,7 +16,7 @@ extern "C" {
 #include <sys/time.h>
 #include <sched.h>
 
-#define BF_VERSION_MAJOR 2
+#define BF_VERSION_MAJOR 3
 #define BF_VERSION_MINOR 0
 
 /* limits */
