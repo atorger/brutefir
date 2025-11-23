@@ -26,11 +26,11 @@ extern void *dither_randmap;
 
 static inline void
 dither_preloop_real2int_hp_tpdf(struct dither_state *state,
-				int samples_per_loop)
+                                int samples_per_loop)
 {
     if (state->randtab_ptr + samples_per_loop >= dither_randtab_size) {
-	dither_randtab[0] = dither_randtab[state->randtab_ptr - 1];
-	state->randtab_ptr = 1;
+        dither_randtab[0] = dither_randtab[state->randtab_ptr - 1];
+        state->randtab_ptr = 1;
     }
     state->randtab = &dither_randtab[state->randtab_ptr];
     state->randtab_ptr += samples_per_loop;
@@ -58,10 +58,10 @@ dither_preloop_real2int_hp_tpdf(struct dither_state *state,
 
 bool
 dither_init(int n_channels,
-	    int sample_rate,
+            int sample_rate,
             int realsize,
-	    int max_size,
-	    int max_samples_per_loop,
-	    struct dither_state *dither_states[]);
+            int max_size,
+            int max_samples_per_loop,
+            struct dither_state *dither_states[]);
 
 #endif

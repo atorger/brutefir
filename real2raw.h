@@ -13,7 +13,7 @@
 #define REAL_T double
 #else
  #error invalid REALSIZE
-#endif        
+#endif
 
 #ifndef CONCAT_EVAL_
 #define CONCAT_EVAL_(a, b) a ## b
@@ -60,14 +60,14 @@ REAL2RAW_SAMPLE_TEST(REAL_T real_sample, struct bfoverflow *overflow)
 
 static void
 REAL2RAW_NAME(void *_rawbuf,
-	      void *_realbuf,
-	      int bits,
-	      int bytes,
-	      bool isfloat,
-	      int spacing,
-	      bool swap,
-	      int n_samples,
-	      struct bfoverflow *overflow REAL2RAW_EXTRA_PARAMS)
+              void *_realbuf,
+              int bits,
+              int bytes,
+              bool isfloat,
+              int spacing,
+              bool swap,
+              int n_samples,
+              struct bfoverflow *overflow REAL2RAW_EXTRA_PARAMS)
 {
     numunion_t *rawbuf, *realbuf, sample;
     int32_t imin, imax;
@@ -78,7 +78,7 @@ REAL2RAW_NAME(void *_rawbuf,
      * It is assumed that sbytes only can have the values possible from the
      * supported sample formats specified in bfmod.h
      */
-    
+
     realbuf = (numunion_t *)_realbuf;
     rawbuf = (numunion_t *)_rawbuf;
     if (isfloat) {
@@ -158,21 +158,21 @@ REAL2RAW_NAME(void *_rawbuf,
         }
 #else
  #error invalid REALSIZE
-#endif        
-	return;
+#endif
+        return;
     }
-    
+
     imin = -((uint64_t)1 << (bits - 1));
     imax = ((uint64_t)1 << (bits - 1)) - 1;
     rmin = (REAL_T)imin;
     rmax = (REAL_T)imax;
     switch (bytes) {
     case 1:
-	for (n = i = 0; n < n_samples; n++, i += spacing) {
+        for (n = i = 0; n < n_samples; n++, i += spacing) {
             REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
-	    rawbuf->i8[i] = (int8_t)REAL2INT_CALL;
-	}
-	break;
+            rawbuf->i8[i] = (int8_t)REAL2INT_CALL;
+        }
+        break;
     case 2:
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -186,9 +186,9 @@ REAL2RAW_NAME(void *_rawbuf,
                 rawbuf->i16[i] = (int16_t)REAL2INT_CALL;
             }
         }
-	break;
+        break;
     case 3:
-	spacing = spacing * 3 - 3;
+        spacing = spacing * 3 - 3;
 #ifdef ARCH_BIG_ENDIAN
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -207,7 +207,7 @@ REAL2RAW_NAME(void *_rawbuf,
                 rawbuf->u8[i++] = sample.u8[3];
             }
         }
-#endif        
+#endif
 #ifdef ARCH_LITTLE_ENDIAN
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -227,8 +227,8 @@ REAL2RAW_NAME(void *_rawbuf,
             }
         }
 #endif
-	break;
-    case 4:	
+        break;
+    case 4:
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
                 REAL2RAW_SAMPLE_TEST(realbuf->RXX[n], overflow);
@@ -241,13 +241,13 @@ REAL2RAW_NAME(void *_rawbuf,
                 rawbuf->i32[i] = REAL2INT_CALL;
             }
         }
-	break;
+        break;
     default:
     real2raw_invalid_byte_size:
-	fprintf(stderr, "Sample byte size %d is not supported.\n", bytes);
-	bf_exit(BF_EXIT_OTHER);
-	break;
-    }        
+        fprintf(stderr, "Sample byte size %d is not supported.\n", bytes);
+        bf_exit(BF_EXIT_OTHER);
+        break;
+    }
 }
 
 #undef REAL_OVERFLOW_UPDATE

@@ -74,17 +74,17 @@ shmalloc_id(int *shmid,
     }
     if (n == -1) {
         print_shmget_error(size);
-	return NULL;
+        return NULL;
     }
 
     if  ((p = shmat(n, NULL, 0)) == (char *)-1) {
-	fprintf(stderr, "Failed to attach to shared memory (shmid %d): %s.\n", n, strerror(errno));
-	return NULL;
+        fprintf(stderr, "Failed to attach to shared memory (shmid %d): %s.\n", n, strerror(errno));
+        return NULL;
     }
     memset(&shmid_ds, 0, sizeof(shmid_ds));
     if (shmctl(n, IPC_RMID, &shmid_ds) == -1) {
-	fprintf(stderr, "Failed to set IPC_RMID (shmid %d): %s.\n", n, strerror(errno));
-	return NULL;
+        fprintf(stderr, "Failed to set IPC_RMID (shmid %d): %s.\n", n, strerror(errno));
+        return NULL;
     }
 
     key++;
@@ -101,7 +101,7 @@ shmalloc_attach(int shmid)
 {
     void *p;
     if ((p = shmat(shmid, NULL, 0)) == (void *)-1) {
-	fprintf(stderr, "Failed to attach to shared memory (shmid %d): %s.\n", shmid, strerror(errno));
+        fprintf(stderr, "Failed to attach to shared memory (shmid %d): %s.\n", shmid, strerror(errno));
         return NULL;
     }
     return p;

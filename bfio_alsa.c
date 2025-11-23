@@ -156,26 +156,26 @@ access_mode_name(snd_pcm_access_t mode) {
 static bool
 set_params(snd_pcm_t *handle,
            const struct settings *settings,
-	   int sample_format,
-	   int sample_rate,
-	   int open_channels,
-	   int period_size,
-	   int *hardware_period_size,
-	   int *sample_size,
-	   int *isinterleaved,
+           int sample_format,
+           int sample_rate,
+           int open_channels,
+           int period_size,
+           int *hardware_period_size,
+           int *sample_size,
+           int *isinterleaved,
            int *ismmap,
-	   char errstr[])
+           char errstr[])
 {
     if (log2_get(period_size) == -1) {
-	sprintf(errstr, "  Invalid software period size (%d): must be a power of 2.\n", period_size);
-	return false;
+        sprintf(errstr, "  Invalid software period size (%d): must be a power of 2.\n", period_size);
+        return false;
     }
 
     snd_pcm_format_t format = bf_sample_format_to_alsa(sample_format);
     if (format == -1) {
         // should not happen
-	sprintf(errstr, "  Unsupported sample format.\n");
-	return false;
+        sprintf(errstr, "  Unsupported sample format.\n");
+        return false;
     }
     *sample_size = bf_sampleformat_size(sample_format);
 
@@ -185,8 +185,8 @@ set_params(snd_pcm_t *handle,
     snd_pcm_hw_params_alloca(&params);
     snd_pcm_sw_params_alloca(&swparams);
     if ((err = snd_pcm_hw_params_any(handle, params)) < 0) {
-	sprintf(errstr, "  Could not get any hardware configuration: %s.\n", snd_strerror(err));
-	return false;
+        sprintf(errstr, "  Could not get any hardware configuration: %s.\n", snd_strerror(err));
+        return false;
     }
 
     const struct {
@@ -200,7 +200,7 @@ set_params(snd_pcm_t *handle,
         { SND_PCM_ACCESS_RW_NONINTERLEAVED, false, true }
     };
     if (settings->force_access) {
-	if ((err = snd_pcm_hw_params_set_access(handle, params, settings->forced_access_mode)) < 0) {
+        if ((err = snd_pcm_hw_params_set_access(handle, params, settings->forced_access_mode)) < 0) {
             char supports[1024];
             for (int i = 0, offset = 0; i < 4; i++) {
                 if (snd_pcm_hw_params_test_access(handle, params, access_modes[i].mode) >= 0) {
@@ -210,13 +210,13 @@ set_params(snd_pcm_t *handle,
                     }
                 }
             }
-	    sprintf(errstr,
+            sprintf(errstr,
                     "  Failed to set forced access mode to %s: %s.\n"
                     "  Device supports:%s\n",
                     access_mode_name(settings->forced_access_mode),
                     snd_strerror(err), supports);
-	    return false;
-	}
+            return false;
+        }
         *isinterleaved =
             settings->forced_access_mode == SND_PCM_ACCESS_MMAP_INTERLEAVED ||
             settings->forced_access_mode == SND_PCM_ACCESS_RW_INTERLEAVED;
@@ -235,18 +235,18 @@ set_params(snd_pcm_t *handle,
             }
         }
         if (!found_mode) {
-	    sprintf(errstr, "  Failed to set interleaved and non-interleaved access mode, with and without mmap: %s.\n",
+            sprintf(errstr, "  Failed to set interleaved and non-interleaved access mode, with and without mmap: %s.\n",
                     snd_strerror(err));
-	    return false;
-	}
+            return false;
+        }
     }
 
     unsigned int un;
     /* It seems like it is best to set_rate_near instead of exact, have had problems with ens1371 */
     un = sample_rate;
     if ((err = snd_pcm_hw_params_set_rate_near(handle, params, &un, NULL)) < 0) {
-	sprintf(errstr, "  Failed to set sample rate to %d Hz: %s.\n", sample_rate, snd_strerror(err));
-	return false;
+        sprintf(errstr, "  Failed to set sample rate to %d Hz: %s.\n", sample_rate, snd_strerror(err));
+        return false;
     }
     /* accept a minor variation in sample rate */
     if (un != sample_rate && !((int)((double)sample_rate * 0.99) < un &&
@@ -278,7 +278,7 @@ set_params(snd_pcm_t *handle,
                 "  Failed to set sample format to %s: %s.\n"
                 "  Device supports:%s\n",
                 bf_strsampleformat(sample_format), snd_strerror(err), supports);
-	return false;
+        return false;
     }
     if ((err = snd_pcm_hw_params_set_channels(handle, params, open_channels)) < 0) {
         char supports[2048];
@@ -290,20 +290,20 @@ set_params(snd_pcm_t *handle,
                 }
             }
         }
-	sprintf(errstr,
+        sprintf(errstr,
                 "  Failed to set channel count to %d: %s.\n"
                 "  Device supports:%s\n",
                 open_channels, snd_strerror(err), supports);
-	return false;
+        return false;
     }
 
     snd_pcm_hw_params_get_periods_max(params, &un, NULL);
     if (un < 2) {
-	/* really strange hardware if this happens */
-	sprintf(errstr,
+        /* really strange hardware if this happens */
+        sprintf(errstr,
 "  Hardware does not support enough periods. At least 2 is required, but the\n\
   hardware supports only %u.\n", un);
-	return false;
+        return false;
     }
 
     /* try to get a hardware fragment size close to the software size */
@@ -313,25 +313,25 @@ set_params(snd_pcm_t *handle,
     snd_pcm_hw_params_get_periods(params, &un, NULL);
     snd_pcm_uframes_t try_hw_period_size = hw_period_size;
     while (un == 1 && try_hw_period_size != 0) {
-	try_hw_period_size /= 2;
-	hw_period_size = try_hw_period_size;
-	snd_pcm_hw_params_set_period_size_near(handle, params, &hw_period_size, NULL);
+        try_hw_period_size /= 2;
+        hw_period_size = try_hw_period_size;
+        snd_pcm_hw_params_set_period_size_near(handle, params, &hw_period_size, NULL);
         snd_pcm_hw_params_get_periods(params, &un, NULL);
     }
     if (hw_period_size == 0) {
-	/* this should never happen, since we have checked that the hardware supports at least two periods */
-	sprintf(errstr, "  Could not set period size.\n");
-	return false;
+        /* this should never happen, since we have checked that the hardware supports at least two periods */
+        sprintf(errstr, "  Could not set period size.\n");
+        return false;
     }
     if (snd_pcm_hw_params(handle, params) < 0) {
-	sprintf(errstr, "  Unable to install hw params.\n");
-	return false;
+        sprintf(errstr, "  Unable to install hw params.\n");
+        return false;
     }
     /* configure to start when explicitly told so */
     snd_pcm_sw_params_current(handle, swparams);
     if ((err = snd_pcm_sw_params_set_start_threshold(handle, swparams, ~0U)) < 0) {
-	sprintf(errstr, "  Failed to set start threshold: %s.\n", snd_strerror(err));
-	return false;
+        sprintf(errstr, "  Failed to set start threshold: %s.\n", snd_strerror(err));
+        return false;
     }
 
     /* configure to stop when buffer underflow is detected */
@@ -350,12 +350,12 @@ set_params(snd_pcm_t *handle,
     }
 
     if ((err = snd_pcm_sw_params(handle, swparams)) < 0) {
-	sprintf(errstr, "  Unable to install sw params: %s.\n", snd_strerror(err));
-	return false;
+        sprintf(errstr, "  Unable to install sw params: %s.\n", snd_strerror(err));
+        return false;
     }
     if ((err = snd_pcm_prepare(handle)) < 0) {
-	sprintf(errstr, "  Unable to prepare audio: %s.\n", snd_strerror(err));
-	return false;
+        sprintf(errstr, "  Unable to prepare audio: %s.\n", snd_strerror(err));
+        return false;
     }
 
     if (glob.debug) {
@@ -396,7 +396,7 @@ bfio_preinit(int *version_major,
 
     int err;
     if (!has_been_called && (err = snd_output_stdio_attach(&glob.out, stderr, 0)) != 0) {
-	fprintf(stderr, "ALSA I/O: Unable to attach output: %s.\n", snd_strerror(err));
+        fprintf(stderr, "ALSA I/O: Unable to attach output: %s.\n", snd_strerror(err));
         return NULL;
     }
 
@@ -472,15 +472,15 @@ bfio_preinit(int *version_major,
 
 int
 bfio_init(void *params,
-	  int io,
-	  int sample_format,
-	  int sample_rate,
-	  int open_channels,
-	  int used_channels,
-	  const int channel_selection[],
-	  int period_size,
-	  int *device_period_size,
-	  int *isinterleaved,
+          int io,
+          int sample_format,
+          int sample_rate,
+          int open_channels,
+          int used_channels,
+          const int channel_selection[],
+          int period_size,
+          int *device_period_size,
+          int *isinterleaved,
           void *callback_state,
           int (*process_callback)(void **callback_states[2],
                                   int callback_state_count[2],
@@ -491,12 +491,12 @@ bfio_init(void *params,
     int err;
     struct settings *settings = (struct settings *)params;
     if ((err = snd_pcm_open(&glob.handles[io][glob.n_handles[io]], settings->device,
-			    (io == BF_IN) ? SND_PCM_STREAM_CAPTURE :
-			    SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK)) < 0)
+                            (io == BF_IN) ? SND_PCM_STREAM_CAPTURE :
+                            SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK)) < 0)
     {
-	fprintf(stderr, "ALSA I/O: Could not open audio %s \"%s\": %s.\n",
-		io == BF_IN ? "input" : "output", settings->device, snd_strerror(err));
-	return -1;
+        fprintf(stderr, "ALSA I/O: Could not open audio %s \"%s\": %s.\n",
+                io == BF_IN ? "input" : "output", settings->device, snd_strerror(err));
+        return -1;
     }
 
     snd_pcm_t *handle = glob.handles[io][glob.n_handles[io]];
@@ -505,27 +505,27 @@ bfio_init(void *params,
     int sample_size;
     char errstr[ERRORSIZE];
     if (!set_params(handle, settings, sample_format, sample_rate, open_channels,
-		    period_size, device_period_size, &sample_size, isinterleaved, &ismmap, errstr))
+                    period_size, device_period_size, &sample_size, isinterleaved, &ismmap, errstr))
     {
-	fprintf(stderr, "ALSA I/O: Could not set audio %s parameters for \"%s\":\n%s",
-		io == BF_IN ? "input" : "output", settings->device, errstr);
-	snd_pcm_close(handle);
-	return -1;
+        fprintf(stderr, "ALSA I/O: Could not set audio %s parameters for \"%s\":\n%s",
+                io == BF_IN ? "input" : "output", settings->device, errstr);
+        snd_pcm_close(handle);
+        return -1;
     }
     struct pollfd pollfd;
     if (snd_pcm_poll_descriptors(handle, &pollfd, 1) != 1) {
-	fprintf(stderr, "ALSA I/O: Could not get file descriptor.\n");
-	snd_pcm_close(handle);
-	return -1;
+        fprintf(stderr, "ALSA I/O: Could not get file descriptor.\n");
+        snd_pcm_close(handle);
+        return -1;
     }
     if (glob.base_handle == NULL) {
         glob.base_handle = handle;
     } else if (glob.link_handles) {
-	if ((err = snd_pcm_link(glob.base_handle, handle)) < 0) {
-	    fprintf(stderr, "ALSA I/O: Could not link alsa devices: %s.\n", snd_strerror(err));
-	    snd_pcm_close(handle);
-	    return -1;
-	}
+        if ((err = snd_pcm_link(glob.base_handle, handle)) < 0) {
+            fprintf(stderr, "ALSA I/O: Could not link alsa devices: %s.\n", snd_strerror(err));
+            snd_pcm_close(handle);
+            return -1;
+        }
     }
     glob.n_handles[io]++;
 
@@ -548,7 +548,7 @@ bfio_init(void *params,
         as->bufs = malloc(open_channels * sizeof(void *));
         memset(as->bufs, 0, open_channels * sizeof(void *));
         as->channel_selection = malloc(used_channels * sizeof(int));
-	memcpy(as->channel_selection, channel_selection, used_channels * sizeof(int));
+        memcpy(as->channel_selection, channel_selection, used_channels * sizeof(int));
     }
     free(settings->device);
     free(settings);
@@ -619,9 +619,9 @@ bfio_synch_stop(void)
 
 int
 bfio_read(int fd,
-	  void *buf,
-	  int offset,
-	  int count)
+          void *buf,
+          int offset,
+          int count)
 {
     struct alsa_access_state *as = &glob.fd2as[fd];
     int frame_count, frame_size, err;
@@ -629,16 +629,16 @@ bfio_read(int fd,
  bfio_read_restart:
 
     if (as->isinterleaved) {
-	frame_size = as->sample_size * as->open_channels;
+        frame_size = as->sample_size * as->open_channels;
         if (as->ismmap) {
             frame_count = snd_pcm_mmap_readi(as->handle, &((uint8_t *)buf)[offset], count / frame_size);
         } else {
             frame_count = snd_pcm_readi(as->handle, &((uint8_t *)buf)[offset], count / frame_size);
         }
-	if (frame_count < 0) {
+        if (frame_count < 0) {
             err = frame_count;
             goto bfio_read_error;
-	}
+        }
     } else {
         uint8_t *ptr = (uint8_t *)buf + offset / as->used_channels;
         for (int n = 0; n < as->used_channels; n++) {
@@ -725,24 +725,24 @@ bfio_read(int fd,
 
 int
 bfio_write(int fd,
-	   const void *buf,
-	   int offset,
-	   int count)
+           const void *buf,
+           int offset,
+           int count)
 {
     struct alsa_access_state *as = &glob.fd2as[fd];
     int frame_count, frame_size, err;
 
     if (as->isinterleaved) {
-	frame_size = as->sample_size * as->open_channels;
+        frame_size = as->sample_size * as->open_channels;
         if (as->ismmap) {
             frame_count = snd_pcm_mmap_writei(as->handle, &((const uint8_t *)buf)[offset], count / frame_size);
         } else {
             frame_count = snd_pcm_writei(as->handle, &((const uint8_t *)buf)[offset], count / frame_size);
         }
-	if (frame_count < 0) {
+        if (frame_count < 0) {
             err = frame_count;
             goto bfio_write_error;
-	}
+        }
     } else {
         const uint8_t *ptr = (const uint8_t *)buf + offset / as->used_channels;
         for (int n = 0; n < as->used_channels; n++) {

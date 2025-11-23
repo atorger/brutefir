@@ -76,8 +76,8 @@ emallocaligned(size_t size)
     check_avail(size);
     err = posix_memalign(&p, ALIGNMENT, size < ALIGNMENT ? ALIGNMENT : size);
     if (err != 0) {
-	PRINT_MESSAGE;
-	EXIT_PROGRAM;
+        PRINT_MESSAGE;
+        EXIT_PROGRAM;
     }
     return p;
 }
@@ -93,23 +93,23 @@ emalloc(size_t size)
     check_avail(size);
     p = malloc(size);
     if (p == NULL) {
-	PRINT_MESSAGE;
-	EXIT_PROGRAM;
+        PRINT_MESSAGE;
+        EXIT_PROGRAM;
     }
     return p;
 }
 
 void *
 erealloc(void *p,
-	 size_t size)
+         size_t size)
 {
     p = realloc(p, size);
     if (size > 0) {
         check_avail(0);
     }
     if (p == NULL) {
-	PRINT_MESSAGE;
-	EXIT_PROGRAM;
+        PRINT_MESSAGE;
+        EXIT_PROGRAM;
     }
     return p;
 }
@@ -125,7 +125,7 @@ estrdup(const char str[])
 
 void
 emalloc_set_exit_function(void (*exit_function)(int),
-			  int status)
+                          int status)
 {
     exit_func = exit_function;
     exit_status = status;

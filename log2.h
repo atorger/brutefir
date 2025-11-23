@@ -15,25 +15,25 @@ static inline int
 log2_get(uint32_t x)
 {
     int lg;
-    
+
     for (lg = 0; (x & 1) == 0 && lg < 32; x = x >> 1, lg++);
     if (lg == 32 || (x & ~1) != 0) {
-	return -1;
+        return -1;
     }
-    return lg;    
+    return lg;
 }
 
 static inline int
 log2_roof(uint32_t x)
 {
     int lg;
-    
+
     for (lg = 31; (x & (1 << lg)) == 0 && lg > 0; lg--);
     if (lg == 0 || (lg == 31 && (x & 0x7FFFFFFF) != 0)) {
-	return -1;
+        return -1;
     }
     if ((x & ~(1 << lg)) != 0) {
-	lg++;
+        lg++;
     }
     return lg;
 }

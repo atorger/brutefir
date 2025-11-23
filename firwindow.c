@@ -17,18 +17,18 @@ i_zero(double x)
     /*
       The zeroth order Modified Bessel function:
 
-      I_0(x) = 1 + 
-        x^2 / 2^2 + 
+      I_0(x) = 1 +
+        x^2 / 2^2 +
         x^4 / (2^2 * 4^2) +
         x^6 / (2^2 * 4^2 * 6^2) +
-        ... to infinity        
+        ... to infinity
 
 
       This function grows quite quickly towards very large numbers.
       By re-organising the calculations somewhat we minimise the dynamic
       range in the floating point numbers, and can thus calculate the
       function for larger x than we could do with a naive implementation.
-      
+
      */
     double n, a, halfx, sum;
     halfx = x / 2.0;
@@ -52,7 +52,7 @@ kaiser(double x,
 {
     /*
       The Kaiser Window, with discrete n on odd length window:
-      
+
       w(n) = I_0(Beta * sqrt(1 - 4*n^2 / (N-1)^2)) / I_0(Beta)
       with -(N-1)/2 <= n <= (N-1)/2
       I_0 is the zeroth order modified bessel function.
@@ -62,7 +62,7 @@ kaiser(double x,
       y(x) = I_O(Beta * sqrt(1 - x^2)) / I_0(Beta)
 
      */
-    
+
     /* check input parameter x, assume, accept and correct possible
        rounding error. */
     if (x < -1.0) {

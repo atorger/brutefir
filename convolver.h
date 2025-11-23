@@ -15,9 +15,9 @@
 /* Convert from raw sample format to the convolver's own time-domain format. */
 void
 convolver_raw2cbuf(void *rawbuf,
-		   void *cbuf,
-		   void *next_cbuf,
-		   struct buffer_format *bf,
+                   void *cbuf,
+                   void *next_cbuf,
+                   struct buffer_format *bf,
                    void (*postprocess)(void *realbuf,
                                        int n_samples,
                                        void *arg),
@@ -26,30 +26,30 @@ convolver_raw2cbuf(void *rawbuf,
 /* Transform from time-domain to frequency-domain. */
 void
 convolver_time2freq(void *input_cbuf,
-		    void *output_cbuf);
+                    void *output_cbuf);
 
 /* Scale and mix in the frequency-domain. The 'mixmode' parameter may be used
    internally for possible reordering of data prior to or after convolution. */
 void
 convolver_mixnscale(void *input_cbufs[],
-		    void *output_cbuf,
-		    double scales[],
-		    int n_bufs,
+                    void *output_cbuf,
+                    double scales[],
+                    int n_bufs,
 #define CONVOLVER_MIXMODE_INPUT      1
 #define CONVOLVER_MIXMODE_INPUT_ADD  2
 #define CONVOLVER_MIXMODE_OUTPUT     3
-		    int mixmode);
+                    int mixmode);
 
 /* Convolution in the frequency-domain, done in-place. */
 void
 convolver_convolve_inplace(void *cbuf,
-			   void *coeffs);
+                           void *coeffs);
 
 /* Convolution in the frequency-domain. */
 void
 convolver_convolve(void *input_cbuf,
-		   void *coeffs,
-		   void *output_cbuf);
+                   void *coeffs,
+                   void *output_cbuf);
 
 void
 convolver_crossfade_inplace(void *input_cbuf,
@@ -59,20 +59,20 @@ convolver_crossfade_inplace(void *input_cbuf,
 /* Convolution in the frequency-domain, with the result added to the output. */
 void
 convolver_convolve_add(void *input_cbuf,
-		       void *coeffs,
-		       void *output_cbuf);
+                       void *coeffs,
+                       void *output_cbuf);
 
 /* Convolve with dirac pulse. */
 void
 convolver_dirac_convolve(void *input_cbuf,
-			 void *output_cbuf);
+                         void *output_cbuf);
 void
 convolver_dirac_convolve_inplace(void *cbuf);
 
 /* Transform from frequency-domain to time-domain. */
 void
 convolver_freq2time(void *input_cbuf,
-		    void *output_cbuf);
+                    void *output_cbuf);
 
 /* Evaluate convolution output by transforming it back to time-domain, do
    overlap-save and transform back to frequency-domain again. Used when filters
@@ -81,17 +81,17 @@ convolver_freq2time(void *input_cbuf,
    buffers may be the same. */
 void
 convolver_convolve_eval(void *input_cbuf,
-			void *buffer_cbuf,
-			void *output_cbuf);
+                        void *buffer_cbuf,
+                        void *output_cbuf);
 
 /* Convert from the convolver's own time-domain format to raw sample format. */
 void
 convolver_cbuf2raw(void *cbuf,
-		   void *outbuf,
-		   struct buffer_format *bf,
-		   bool apply_dither,
-		   void *dither_state,
-		   struct bfoverflow *overflow);
+                   void *outbuf,
+                   struct buffer_format *bf,
+                   bool apply_dither,
+                   void *dither_state,
+                   struct bfoverflow *overflow);
 
 /* Return the size of the convolver's internal format corresponding to the
    given number of samples. */
@@ -102,8 +102,8 @@ convolver_cbufsize(void);
    format. */
 void *
 convolver_coeffs2cbuf(void *coeffs,
-		      int n_coeffs,
-		      double scale,
+                      int n_coeffs,
+                      double scale,
                       void *optional_dest);
 
 /* Fast version of the above to be used in runtime */
@@ -147,7 +147,7 @@ convolver_td_convolve(td_conv_t *tdc,
 /* Initialise convolver. Some convolvers may ignore 'config_filename' */
 bool
 convolver_init(const char config_filename[],
-	       int length,
+               int length,
                int realsize);
 
 #endif

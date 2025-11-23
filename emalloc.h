@@ -11,20 +11,20 @@
 
 void *
 emallocaligned(size_t size);
-    
+
 void *
 emalloc(size_t size);
 
 void *
 erealloc(void *p,
-	 size_t size);
+         size_t size);
 
 char *
 estrdup(const char str[]);
 
 void
 emalloc_set_exit_function(void (*exit_function)(int),
-			  int status);
+                          int status);
 
 void
 efree(void *p);

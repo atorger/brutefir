@@ -80,7 +80,7 @@ extern struct bfconf *bfconf;
 
 void
 bfconf_init(char filename[],
-	    bool quiet,
+            bool quiet,
             bool nodefault);
 
 #endif

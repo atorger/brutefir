@@ -120,9 +120,9 @@ struct debug_output {
  */
 bool
 dai_init(int period_size, /* in samples, must be a power of two */
-	 int rate,
-	 int n_subdevs[2],
-	 struct dai_subdevice *subdevs[2],
+         int rate,
+         int n_subdevs[2],
+         struct dai_subdevice *subdevs[2],
          void *buffers[2][2]);
 
 /*
@@ -158,12 +158,12 @@ dai_isinit(void);
 
 void
 dai_toggle_mute(int io,
-		int channel);
+                int channel);
 
 int
 dai_change_delay(int io,
-		 int channel,
-		 int delay);
+                 int channel,
+                 int delay);
 
 int
 dai_subdev_command(int io,

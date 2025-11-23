@@ -12,17 +12,17 @@ typedef struct delaybuffer_t_ delaybuffer_t;
 /* optional_target_buf has sample_spacing == 1 */
 void
 delay_update(delaybuffer_t *db,
-	     void *buf,
-	     int sample_size,
-	     int sample_spacing,
-	     int delay,
-	     void *optional_target_buf);
+             void *buf,
+             int sample_size,
+             int sample_spacing,
+             int delay,
+             void *optional_target_buf);
 
 delaybuffer_t *
 delay_allocate_buffer(int fragment_size,
-		      int initdelay,
-		      int maxdelay,
-		      int sample_size);
+                      int initdelay,
+                      int maxdelay,
+                      int sample_size);
 
 int
 delay_subsample_filterblocksize(void);

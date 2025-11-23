@@ -9,9 +9,9 @@
 
 void
 convolver_sse_convolve_add(void *input_cbuf,
-			   void *coeffs,
-			   void *output_cbuf,
-			   int loop_counter);
+                           void *coeffs,
+                           void *output_cbuf,
+                           int loop_counter);
 
 void
 convolver_sse2_convolve_add(void *input_cbuf,
@@ -21,8 +21,8 @@ convolver_sse2_convolve_add(void *input_cbuf,
 
 void
 convolver_3dnow_convolve_add(void *input_cbuf,
-			     void *coeffs,
-			     void *output_cbuf,
-			     int loop_counter);
+                             void *coeffs,
+                             void *output_cbuf,
+                             int loop_counter);
 
 #endif

@@ -119,18 +119,18 @@ bit32_find(const uint32_t bits[],
         return -1;
     }
     if ((bb = bits[from >> 5u] >> (from & 0x1Fu)) != 0) {
-	if ((i = bit32_bsf(bb) + from) > to) {
-	    return -1;
-	}
-	return (int)i;
+        if ((i = bit32_bsf(bb) + from) > to) {
+            return -1;
+        }
+        return (int)i;
     }
     for (i = (from >> 5u) + 1; i <= (to >> 5u); i++) {
-	if (bits[i] != 0) {
-	    if ((i = bit32_bsf(bits[i]) + (i << 5u)) > to) {
-		return -1;
-	    }
-	    return (int)i;
-	}
+        if (bits[i] != 0) {
+            if ((i = bit32_bsf(bits[i]) + (i << 5u)) > to) {
+                return -1;
+            }
+            return (int)i;
+        }
     }
     return -1;
 }

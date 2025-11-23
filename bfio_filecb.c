@@ -97,7 +97,7 @@ process_thread(void *arg)
             pollfd[n_poll].fd = files[n]->fd;
             pollfd[n_poll].events = files[n]->io == IN ? POLLIN : POLLOUT;
             pollfd[n_poll].revents = 0;
-            n_poll++;            
+            n_poll++;
         }
         if (n_poll == 0) {
             if (frames_left != 0) {
@@ -175,7 +175,7 @@ process_thread(void *arg)
             }
         }
     }
-    
+
 }
 
 int
@@ -225,7 +225,7 @@ bfio_preinit(int *version_minor,
                     return NULL;
                 }
                 GET_TOKEN(BF_LEXVAL_STRING, "expected string.\n");
-                settings->path = strdup(lexval.string);                
+                settings->path = strdup(lexval.string);
             } else if (strcmp(lexval.field, "skip") == 0) {
                 GET_TOKEN(BF_LEXVAL_REAL, "expected integer.\n");
                 settings->skipbytes = (off_t)lexval.real;
@@ -263,15 +263,15 @@ bfio_preinit(int *version_minor,
 
 int
 bfio_init(void *params,
-	  int io,
-	  int sample_format,
-	  int sample_rate,
-	  int open_channels,
-	  int used_channels,
-	  const int channel_selection[],
-	  int _period_size,
-	  int *device_period_size,
-	  int *isinterleaved,
+          int io,
+          int sample_format,
+          int sample_rate,
+          int open_channels,
+          int used_channels,
+          const int channel_selection[],
+          int _period_size,
+          int *device_period_size,
+          int *isinterleaved,
           void *callback_state,
           int (*process_callback)(void **callback_states[2],
                                   int callback_state_count[2],
@@ -283,39 +283,39 @@ bfio_init(void *params,
     int fd, mode;
 
     settings = (struct settings *)params;
-    process_cb = process_callback;    
-    *device_period_size = _period_size; 
+    process_cb = process_callback;
+    *device_period_size = _period_size;
     *isinterleaved = 1;
     period_size = _period_size;
-        
+
     if (io == BF_IN) {
-	if ((fd = open(settings->path, O_RDONLY | O_NONBLOCK |
-		       O_LARGEFILE)) == -1)
-	{
-	    fprintf(stderr, "filecb I/O: Could not open file \"%s\" for "
+        if ((fd = open(settings->path, O_RDONLY | O_NONBLOCK |
+                       O_LARGEFILE)) == -1)
+        {
+            fprintf(stderr, "filecb I/O: Could not open file \"%s\" for "
                     "reading: %s.\n", settings->path, strerror(errno));
-	    return -1;
-	}
-	if (settings->skipbytes > 0) {
-	    if (lseek(fd, settings->skipbytes, SEEK_SET) == -1) {
-		fprintf(stderr, "filecb I/O: File seek failed.\n");
-		return -1;
-	    }
-	}
+            return -1;
+        }
+        if (settings->skipbytes > 0) {
+            if (lseek(fd, settings->skipbytes, SEEK_SET) == -1) {
+                fprintf(stderr, "filecb I/O: File seek failed.\n");
+                return -1;
+            }
+        }
     } else {
-	if (settings->append) {
-	    mode = O_APPEND;
-	} else {
-	    mode = O_TRUNC;
-	}
-	if ((fd = open(settings->path, O_WRONLY | O_CREAT | mode |
-		       O_NONBLOCK | O_LARGEFILE, S_IRUSR | S_IWUSR |
-		       S_IRGRP | S_IROTH)) == -1)
-	{
-	    fprintf(stderr, "filecb I/O: Could not create file \"%s\" for "
+        if (settings->append) {
+            mode = O_APPEND;
+        } else {
+            mode = O_TRUNC;
+        }
+        if ((fd = open(settings->path, O_WRONLY | O_CREAT | mode |
+                       O_NONBLOCK | O_LARGEFILE, S_IRUSR | S_IWUSR |
+                       S_IRGRP | S_IROTH)) == -1)
+        {
+            fprintf(stderr, "filecb I/O: Could not create file \"%s\" for "
                     "writing: %s.\n", settings->path, strerror(errno));
-	    return -1;
-	}
+            return -1;
+        }
     }
     free(settings->path);
     free(settings);
@@ -330,7 +330,7 @@ bfio_init(void *params,
     files[n_files]->buf = malloc(files[n_files]->size);
     files[n_files]->state = callback_state;
     n_files++;
-    
+
     return 0;
 }
 
@@ -348,7 +348,7 @@ bfio_synch_start(void)
         return -1;
     }
     pthread_sigmask(SIG_UNBLOCK, &signals, NULL);
-    
+
     return 0;
 }
 

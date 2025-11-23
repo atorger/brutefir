@@ -66,18 +66,18 @@ decide_opt_code(void)
     if (strcmp((char *)vendor->u8, "GenuineIntel") == 0 &&
         level >= 0x00000001)
     {
-	cpuid(0x00000001, &junk, &junk, &junk, &cap);
+        cpuid(0x00000001, &junk, &junk, &junk, &cap);
         if (realsize == 8) {
             if ((cap & (1 << 26)) != 0) {
                 opt_code = OPT_CODE_SSE2;
                 pinfo("SSE2 capability detected -- optimisation enabled.\n");
             }
-	} else {
+        } else {
             if ((cap & (1 << 25)) != 0) {
                 opt_code = OPT_CODE_SSE;
                 pinfo("SSE capability detected -- optimisation enabled.\n");
             }
-	}
+        }
     }
 }
 #else
@@ -162,9 +162,9 @@ create_fft_plan(int length,
 
 void
 convolver_raw2cbuf(void *rawbuf,
-		   void *cbuf,
-		   void *next_cbuf,
-		   struct buffer_format *bf,
+                   void *cbuf,
+                   void *next_cbuf,
+                   struct buffer_format *bf,
                    void (*postprocess)(void *realbuf,
                                        int n_samples,
                                        void *arg),
@@ -182,13 +182,13 @@ convolver_raw2cbuf(void *rawbuf,
     if (postprocess != NULL) {
         postprocess(next_cbuf, n_fft2, pp_arg);
     }
-        
+
     memcpy(&((uint8_t *)cbuf)[n_fft2 * realsize], next_cbuf, n_fft2 * realsize);
 }
 
 void
 convolver_time2freq(void *input_cbuf,
-		    void *output_cbuf)
+                    void *output_cbuf)
 {
     void *fftplan;
 
@@ -245,8 +245,8 @@ convolver_convolve(void *input_cbuf,
 
 void
 convolver_convolve_add(void *input_cbuf,
-		       void *coeffs,
-		       void *output_cbuf)
+                       void *coeffs,
+                       void *output_cbuf)
 {
     /*
 #define real_t double
@@ -261,14 +261,14 @@ convolver_convolve_add(void *input_cbuf,
     switch (opt_code) {
 #ifdef __SSE__
     case OPT_CODE_SSE:
-	convolver_sse_convolve_add(input_cbuf, coeffs, output_cbuf,
+        convolver_sse_convolve_add(input_cbuf, coeffs, output_cbuf,
                                    n_fft >> 3);
-	break;
+        break;
 #ifdef __SSE2__
     case OPT_CODE_SSE2:
-	convolver_sse2_convolve_add(input_cbuf, coeffs, output_cbuf,
+        convolver_sse2_convolve_add(input_cbuf, coeffs, output_cbuf,
                                     n_fft >> 3);
-	break;
+        break;
 #endif
 #endif
     default:
@@ -281,9 +281,9 @@ convolver_convolve_add(void *input_cbuf,
     }
     /*
     {
-	real_t d1s, d2s, err, e;
-	int n;
-        
+        real_t d1s, d2s, err, e;
+        int n;
+
         d1s = _d[0] + _b[0] * _c[0];
         d2s = _d[4] + _b[4] * _c[4];
         for (n = 0; n < n_fft; n += 8) {
@@ -291,7 +291,7 @@ convolver_convolve_add(void *input_cbuf,
             _d[n+1] += _b[n+1] * _c[n+1] - _b[n+5] * _c[n+5];
             _d[n+2] += _b[n+2] * _c[n+2] - _b[n+6] * _c[n+6];
             _d[n+3] += _b[n+3] * _c[n+3] - _b[n+7] * _c[n+7];
-            
+
             _d[n+4] += _b[n+0] * _c[n+4] + _b[n+4] * _c[n+0];
             _d[n+5] += _b[n+1] * _c[n+5] + _b[n+5] * _c[n+1];
             _d[n+6] += _b[n+2] * _c[n+6] + _b[n+6] * _c[n+2];
@@ -342,14 +342,14 @@ convolver_crossfade_inplace(void *input_cbuf,
     if (realsize == 4) {
         f = 1.0 / (float)(n_fft2 - 1);
         for (n = 0; n < n_fft2; n++) {
-            ((float *)buffer_cbuf)[n] = 
+            ((float *)buffer_cbuf)[n] =
                 ((float *)crossfade_cbuf)[n] * (1.0 - f * (float)n) +
                 ((float *)buffer_cbuf)[n] * f * (float)n;
         }
     } else {
         d = 1.0 / (double)(n_fft2 - 1);
         for (n = 0; n < n_fft2; n++) {
-            ((double *)buf1)[n] = 
+            ((double *)buf1)[n] =
                 ((double *)buf1)[n] * (1.0 - d * (double)n) +
                 ((double *)buf2)[n] * d * (double)n;
         }
@@ -359,7 +359,7 @@ convolver_crossfade_inplace(void *input_cbuf,
     convolver_mixnscale(&buffer_cbuf, input_cbuf, &scale, 1,
                         CONVOLVER_MIXMODE_INPUT);
 }
-    
+
 void
 convolver_dirac_convolve_inplace(void *cbuf)
 {
@@ -383,7 +383,7 @@ convolver_dirac_convolve(void *input_cbuf,
 
 void
 convolver_freq2time(void *input_cbuf,
-		    void *output_cbuf)
+                    void *output_cbuf)
 {
     void *ifftplan;
 
@@ -403,8 +403,8 @@ convolver_freq2time(void *input_cbuf,
 
 void
 convolver_convolve_eval(void *input_cbuf,
-			void *buffer_cbuf, /* 1.5 x size */
-			void *output_cbuf)
+                        void *buffer_cbuf, /* 1.5 x size */
+                        void *output_cbuf)
 {
     if (realsize == 4) {
         fftwf_execute_r2r((const fftwf_plan)ifftplans[fft_order],
@@ -422,7 +422,7 @@ convolver_convolve_eval(void *input_cbuf,
                          (double *)output_cbuf);
     }
     memcpy(buffer_cbuf, &((uint8_t *)buffer_cbuf)[n_fft2 * realsize],
-	   n_fft2 * realsize);
+           n_fft2 * realsize);
 }
 
 #define real_t float
@@ -440,7 +440,7 @@ convolver_convolve_eval(void *input_cbuf,
 #define REAL2RAW_NAME real2rawf_no_dither
 #define REAL2INT_CALL ditherd_real2int_no_dither(((float *)realbuf)[n], rmin,  \
                                                  rmax, imin, imax, overflow)
-#define REAL2RAW_EXTRA_PARAMS 
+#define REAL2RAW_EXTRA_PARAMS
 #include "real2raw.h"
 #undef REAL2RAW_NAME
 #undef REAL2INT_CALL
@@ -463,7 +463,7 @@ convolver_convolve_eval(void *input_cbuf,
 #define REAL2RAW_NAME real2rawd_no_dither
 #define REAL2INT_CALL ditherd_real2int_no_dither(((double *)realbuf)[n], rmin, \
                                                  rmax, imin, imax, overflow)
-#define REAL2RAW_EXTRA_PARAMS 
+#define REAL2RAW_EXTRA_PARAMS
 #include "real2raw.h"
 #undef REAL2RAW_NAME
 #undef REAL2INT_CALL
@@ -474,11 +474,11 @@ convolver_convolve_eval(void *input_cbuf,
 
 void
 convolver_cbuf2raw(void *cbuf,
-		   void *outbuf,
-		   struct buffer_format *bf,
-		   bool apply_dither,
-		   void *dither_state,
-		   struct bfoverflow *overflow)
+                   void *outbuf,
+                   struct buffer_format *bf,
+                   bool apply_dither,
+                   void *dither_state,
+                   struct bfoverflow *overflow)
 {
     if (realsize == 4) {
         if (apply_dither && !bf->sf.isfloat) {
@@ -518,8 +518,8 @@ convolver_cbufsize(void)
 
 void *
 convolver_coeffs2cbuf(void *coeffs,
-		      int n_coeffs,
-		      double scale,
+                      int n_coeffs,
+                      double scale,
                       void *optional_dest)
 {
     void *rcoeffs, *coeffs_data;
@@ -559,9 +559,9 @@ convolver_coeffs2cbuf(void *coeffs,
         coeffs_data = emallocaligned(n_fft * realsize);
     }
     convolver_mixnscale(&rcoeffs, coeffs_data, &scale, 1,
-			CONVOLVER_MIXMODE_INPUT);
+                        CONVOLVER_MIXMODE_INPUT);
     efree(rcoeffs);
-    
+
     return coeffs_data;
 }
 
@@ -571,7 +571,7 @@ convolver_runtime_coeffs2cbuf(void *src,  /* nfft / 2 */
 {
     static void *tmp = NULL;
     double scale;
-    
+
     if (tmp == NULL) {
         tmp = emallocaligned(n_fft * realsize);
     }
@@ -593,7 +593,7 @@ convolver_verify_cbuf(void *cbufs[],
                       int n_cbufs)
 {
     int n, i;
-    
+
     for (n = 0; n < n_cbufs; n++) {
         if (realsize == 4) {
             for (i = 0; i < n_fft; i++) {
@@ -630,7 +630,7 @@ convolver_debug_dump_cbuf(const char filename[],
         return;
     }
     coeffs = emallocaligned(n_fft * realsize);
-    scale = 1.0;    
+    scale = 1.0;
     for (n = 0; n < n_cbufs; n++) {
         convolver_mixnscale(&cbufs[n], coeffs, &scale, 1,
                             CONVOLVER_MIXMODE_OUTPUT);
@@ -687,7 +687,7 @@ convolver_fftplan(int order,
 
 struct _td_conv_t_ {
     void *fftplan;
-    void *ifftplan;    
+    void *ifftplan;
     void *coeffs;
     int blocklen;
 };
@@ -709,7 +709,7 @@ convolver_td_new(void *coeffs,
     td_conv_t *tdc;
     double scaled;
     float scalef;
-    
+
     if ((blocklen = convolver_td_block_length(n_coeffs)) == -1) {
         return NULL;
     }
@@ -749,7 +749,7 @@ convolve_inplace_ordered(void *cbuf,
     int n, size2 = size >> 1;
     if (realsize == 4) {
         float a, *b = (float *)cbuf, *c = (float *)coeffs;
-        
+
         b[0] *= c[0];
         for (n = 1; n < size2; n++) {
             a = b[n];
@@ -759,7 +759,7 @@ convolve_inplace_ordered(void *cbuf,
         b[size2] *= c[size2];
     } else {
         double a, *b = (double *)cbuf, *c = (double *)coeffs;
-        
+
         b[0] *= c[0];
         for (n = 1; n < size2; n++) {
             a = b[n];
@@ -789,7 +789,7 @@ convolver_td_convolve(td_conv_t *tdc,
 
 bool
 convolver_init(const char config_filename[],
-	       int length,
+               int length,
                int _realsize)
 {
     int order;
@@ -799,12 +799,12 @@ convolver_init(const char config_filename[],
     decide_opt_code();
 
     if (realsize != 4 && realsize != 8) {
-	fprintf(stderr, "Invalid real size %d.\n", realsize);
-	return false;
+        fprintf(stderr, "Invalid real size %d.\n", realsize);
+        return false;
     }
     if ((order = log2_get(length)) == -1) {
-	fprintf(stderr, "Invalid length %d.\n", length);
-	return false;
+        fprintf(stderr, "Invalid length %d.\n", length);
+        return false;
     }
     order++;
     fft_order = order;
@@ -812,11 +812,11 @@ convolver_init(const char config_filename[],
     n_fft2 = length;
 
     if ((stream = fopen(config_filename, "rt")) == NULL) {
-	if (errno != ENOENT) {
-	    fprintf(stderr, "Could not open \"%s\" for reading: %s.\n",
-		    config_filename, strerror(errno));
-	    return false;
-	}
+        if (errno != ENOENT) {
+            fprintf(stderr, "Could not open \"%s\" for reading: %s.\n",
+                    config_filename, strerror(errno));
+            return false;
+        }
     } else {
         /* We ignore if we can't read wisdom, we just overwrite with new */
         if (realsize == 4) {
@@ -848,6 +848,6 @@ convolver_init(const char config_filename[],
         }
         fclose(stream);
     }
-    
+
     return true;
 }

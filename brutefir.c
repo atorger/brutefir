@@ -35,31 +35,31 @@ main(int argc,
     int n;
 
     for (n = 1; n < argc; n++) {
-	if (strcmp(argv[n], "-quiet") == 0) {
-	    quiet = true;
-	} else if (strcmp(argv[n], "-nodefault") == 0) {
+        if (strcmp(argv[n], "-quiet") == 0) {
+            quiet = true;
+        } else if (strcmp(argv[n], "-nodefault") == 0) {
             nodefault = true;
-	} else if (strcmp(argv[n], "-daemon") == 0) {
+        } else if (strcmp(argv[n], "-daemon") == 0) {
             run_as_daemon = true;
-	} else if (strcmp(argv[n], "-h") == 0 || strcmp(argv[n], "--help") == 0) {
+        } else if (strcmp(argv[n], "-h") == 0 || strcmp(argv[n], "--help") == 0) {
             fprintf(stderr, PRESENTATION_STRING);
             fprintf(stderr, USAGE_STRING, argv[0]);
             return BF_EXIT_INVALID_CONFIG;
-	} else {
-	    if (config_filename != NULL) {
-		break;
-	    }
-	    config_filename = argv[n];
-	}
+        } else {
+            if (config_filename != NULL) {
+                break;
+            }
+            config_filename = argv[n];
+        }
     }
     if (n != argc) {
-	fprintf(stderr, PRESENTATION_STRING);
-	fprintf(stderr, USAGE_STRING, argv[0]);
-	return BF_EXIT_INVALID_CONFIG;
+        fprintf(stderr, PRESENTATION_STRING);
+        fprintf(stderr, USAGE_STRING, argv[0]);
+        return BF_EXIT_INVALID_CONFIG;
     }
 
     if (!quiet) {
-	fprintf(stderr, PRESENTATION_STRING);
+        fprintf(stderr, PRESENTATION_STRING);
     }
 
     emalloc_set_exit_function(bf_exit, BF_EXIT_NO_MEMORY);

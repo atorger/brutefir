@@ -22,34 +22,34 @@ readfd(int fd,
     int n, i = 0;
 
     do {
-	if ((n = read(fd, &((uint8_t *)buf)[i], count - i)) < 1) {
-	    if (n == 0 || errno != EINTR) {
-		fprintf(stderr, "read from fd %d failed: %s\n", fd, strerror(errno));
-		return false;
-	    }
-	    continue;
-	}
-	i += n;
+        if ((n = read(fd, &((uint8_t *)buf)[i], count - i)) < 1) {
+            if (n == 0 || errno != EINTR) {
+                fprintf(stderr, "read from fd %d failed: %s\n", fd, strerror(errno));
+                return false;
+            }
+            continue;
+        }
+        i += n;
     } while (i != count);
     return true;
 }
 
 static inline bool
 writefd(int fd,
-	const void *buf,
-	size_t count)
+        const void *buf,
+        size_t count)
 {
     int n, i = 0;
 
     do {
-	if ((n = write(fd, &((const uint8_t *)buf)[i], count - i)) < 1) {
-	    if (n == 0 || errno != EINTR) {
-		fprintf(stderr, "write to fd %d failed: %s\n", fd, strerror(errno));
-		return false;
-	    }
-	    continue;
-	}
-	i += n;
+        if ((n = write(fd, &((const uint8_t *)buf)[i], count - i)) < 1) {
+            if (n == 0 || errno != EINTR) {
+                fprintf(stderr, "write to fd %d failed: %s\n", fd, strerror(errno));
+                return false;
+            }
+            continue;
+        }
+        i += n;
     } while (i != count);
     return true;
 }

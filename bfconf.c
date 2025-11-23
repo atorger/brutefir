@@ -3355,7 +3355,7 @@ External scheduling priority for module \"%s\" is lower than %d.\n",
     /* free allocated memory */
     FOR_IN_AND_OUT {
         for (n = 0; n < bfconf->n_subdevs[IO]; n++) {
-	    efree(iodevs[IO][n]);
+            efree(iodevs[IO][n]);
         }
     }
 }

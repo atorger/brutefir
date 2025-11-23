@@ -21,7 +21,7 @@ RAW2REAL_NAME(void *_realbuf,
     if (isfloat) {
 #if REALSIZE == 4
 #define RXX r32
-#define REAL_T float        
+#define REAL_T float
         switch (bytes) {
         case 4:
             if (swap) {
@@ -51,7 +51,7 @@ RAW2REAL_NAME(void *_realbuf,
         }
 #elif REALSIZE == 8
 #define RXX r64
-#define REAL_T double        
+#define REAL_T double
         switch (bytes) {
         case 4:
             if (swap) {
@@ -81,17 +81,17 @@ RAW2REAL_NAME(void *_realbuf,
         }
 #else
  #error invalid REALSIZE
-#endif        
+#endif
         return;
     }
 
     sample.u64[0] = 0;
     switch (bytes) {
     case 1:
-	for (n = i = 0; n < n_samples; n++, i += spacing) {
-	    realbuf->RXX[n] = (REAL_T)rawbuf->i8[i];
-	}
-	break;
+        for (n = i = 0; n < n_samples; n++, i += spacing) {
+            realbuf->RXX[n] = (REAL_T)rawbuf->i8[i];
+        }
+        break;
     case 2:
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -102,9 +102,9 @@ RAW2REAL_NAME(void *_realbuf,
                 realbuf->RXX[n] = (REAL_T)rawbuf->i16[i];
             }
         }
-	break;
+        break;
     case 3:
-	spacing = spacing * 3 - 3;
+        spacing = spacing * 3 - 3;
 #ifdef ARCH_BIG_ENDIAN
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -120,8 +120,8 @@ RAW2REAL_NAME(void *_realbuf,
                 sample.u8[2] = rawbuf->u8[i++];
                 realbuf->RXX[n] = (REAL_T)(sample.i32[0] >> 8);
             }
-	}
-#endif        
+        }
+#endif
 #ifdef ARCH_LITTLE_ENDIAN
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -139,7 +139,7 @@ RAW2REAL_NAME(void *_realbuf,
             }
         }
 #endif
-	break;
+        break;
     case 4:
         if (swap) {
             for (n = i = 0; n < n_samples; n++, i += spacing) {
@@ -150,13 +150,13 @@ RAW2REAL_NAME(void *_realbuf,
                 realbuf->RXX[n] = (REAL_T)rawbuf->i32[i];
             }
         }
-	break;
+        break;
     default:
     raw2real_invalid_byte_size:
-	fprintf(stderr, "Sample byte size %d is not supported.\n", bytes);
-	bf_exit(BF_EXIT_OTHER);
-	break;
-    }    
+        fprintf(stderr, "Sample byte size %d is not supported.\n", bytes);
+        bf_exit(BF_EXIT_OTHER);
+        break;
+    }
 }
 
 #undef RXX

@@ -10,9 +10,9 @@
 
 void
 convolver_sse_convolve_add(void *input_cbuf,
-			   void *coeffs,
-			   void *output_cbuf,
-			   int loop_counter)
+                           void *coeffs,
+                           void *output_cbuf,
+                           int loop_counter)
 {
     __m128 *b = (__m128 *)input_cbuf;
     __m128 *c = (__m128 *)coeffs;

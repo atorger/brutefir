@@ -725,9 +725,9 @@ callback_process_thread(void *arg)
 
 bool
 dai_init(int _period_size,
-	 int rate,
-	 int n_subdevs[2],
-	 struct dai_subdevice *subdevs[2],
+         int rate,
+         int n_subdevs[2],
+         struct dai_subdevice *subdevs[2],
          void *buffers[2][2])
 {
     FD_ZERO(&glob.dev_fds[IN]);
@@ -811,12 +811,12 @@ dai_init(int _period_size,
     }
 
     FOR_IN_AND_OUT {
-	if (pipe(glob.paramspipe_s[IO]) == -1 ||
-	    pipe(glob.paramspipe_r[IO]) == -1)
-	{
-	    fprintf(stderr, "Failed to create pipe: %s.\n", strerror(errno));
-	    return false;
-	}
+        if (pipe(glob.paramspipe_s[IO]) == -1 ||
+            pipe(glob.paramspipe_r[IO]) == -1)
+        {
+            fprintf(stderr, "Failed to create pipe: %s.\n", strerror(errno));
+            return false;
+        }
         bf_sem_init(&glob.synchpipe[IO]);
         bf_sem_post(&glob.synchpipe[IO]);
     }
@@ -826,9 +826,9 @@ dai_init(int _period_size,
         if (bfconf->iomods[subdevs[IN][n].module].iscallback) {
             continue;
         }
-	if (!init_input(&subdevs[IN][n], n)) {
-	    return false;
-	}
+        if (!init_input(&subdevs[IN][n], n)) {
+            return false;
+        }
     }
 
     /* initialise outputs */
@@ -836,14 +836,14 @@ dai_init(int _period_size,
         if (bfconf->iomods[subdevs[OUT][n].module].iscallback) {
             continue;
         }
-	if (!init_output(&subdevs[OUT][n], n)) {
-	    return false;
-	}
+        if (!init_output(&subdevs[OUT][n], n)) {
+            return false;
+        }
     }
 
     /* calculate buffer format, and allocate buffers */
     FOR_IN_AND_OUT {
-	calc_buffer_format(glob.period_size, IO, &ca->buffer_format[IO]);
+        calc_buffer_format(glob.period_size, IO, &ca->buffer_format[IO]);
     }
     uint8_t *buffer;
     const size_t buffer_size = 2 * dai_buffer_format[IN]->n_bytes + 2 * dai_buffer_format[OUT]->n_bytes;
@@ -955,24 +955,24 @@ dai_isinit(void)
 
 void
 dai_toggle_mute(const int io,
-		const int channel)
+                const int channel)
 {
     if ((io != IN && io != OUT) || channel < 0 || channel >= BF_MAXCHANNELS) {
-	return;
+        return;
     }
     ca->is_muted[io][channel] = !ca->is_muted[io][channel];
 }
 
 int
 dai_change_delay(const int io,
-		 const int channel,
-		 const int delay)
+                 const int channel,
+                 const int delay)
 {
     if (delay < 0 || channel < 0 || channel >= BF_MAXCHANNELS ||
         (io != IN && io != OUT) ||
         bfconf->n_virtperphys[io][channel] != 1)
     {
-	return -1;
+        return -1;
     }
     ca->delay[io][channel] = delay;
     return 0;
@@ -989,41 +989,41 @@ dai_subdev_command(int io,
     efree(msgstr);
     msgstr = NULL;
     if (io != IN && io != OUT) {
-	if (message != NULL) {
-	    msgstr = estrdup("Invalid io selection");
-	    *message = msgstr;
-	}
-	return -1;
+        if (message != NULL) {
+            msgstr = estrdup("Invalid io selection");
+            *message = msgstr;
+        }
+        return -1;
     }
     if (subdev_index < 0 || subdev_index >= glob.n_devs[io]) {
-	if (message != NULL) {
-	    msgstr = estrdup("Invalid device index");
-	    *message = msgstr;
-	}
-	return -1;
+        if (message != NULL) {
+            msgstr = estrdup("Invalid device index");
+            *message = msgstr;
+        }
+        return -1;
     }
     if (params == NULL) {
-	if (message != NULL) {
-	    msgstr = estrdup("Missing parameters");
-	    *message = msgstr;
-	}
-	return -1;
+        if (message != NULL) {
+            msgstr = estrdup("Missing parameters");
+            *message = msgstr;
+        }
+        return -1;
     }
     bf_sem_wait(&glob.synchpipe[io]);
 
     int n = strlen(params) + 1;
     if (!writefd(glob.paramspipe_s[io][1], &subdev_index, sizeof(int)) ||
-	!writefd(glob.paramspipe_s[io][1], &n, sizeof(int)) ||
-	!writefd(glob.paramspipe_s[io][1], params, n))
+        !writefd(glob.paramspipe_s[io][1], &n, sizeof(int)) ||
+        !writefd(glob.paramspipe_s[io][1], params, n))
     {
-	fprintf(stderr, "Failed to write to pipe.\n");
-	bf_exit(BF_EXIT_OTHER);
+        fprintf(stderr, "Failed to write to pipe.\n");
+        bf_exit(BF_EXIT_OTHER);
     }
 
     int ans;
     if (!readfd(glob.paramspipe_r[io][0], &ans, sizeof(int))) {
-	fprintf(stderr, "Failed to read from pipe.\n");
-	bf_exit(BF_EXIT_OTHER);
+        fprintf(stderr, "Failed to read from pipe.\n");
+        bf_exit(BF_EXIT_OTHER);
     }
     if (!readfd(glob.paramspipe_r[io][0], &n, sizeof(int))) {
         fprintf(stderr, "Failed to read from pipe.\n");
@@ -1032,7 +1032,7 @@ dai_subdev_command(int io,
     msgstr = emalloc(n);
     if (!readfd(glob.paramspipe_r[io][0], msgstr, n)) {
         fprintf(stderr, "Failed to read from pipe.\n");
-	    bf_exit(BF_EXIT_OTHER);
+            bf_exit(BF_EXIT_OTHER);
     }
     if (message != NULL) {
         *message = msgstr;
@@ -1045,7 +1045,7 @@ void
 dai_die(void)
 {
     if (ca == NULL) {
-	return;
+        return;
     }
 
     const bool iscallback = bf_pid_equal(bf_getpid(), ca->callback_pid);
@@ -1070,13 +1070,13 @@ dai_die(void)
         }
     }
     FOR_IN_AND_OUT {
-	if (bf_pid_equal(bf_getpid(), ca->pid[IO])) {
-	    for (int n = 0; n < bfconf->n_iomods; n++) {
+        if (bf_pid_equal(bf_getpid(), ca->pid[IO])) {
+            for (int n = 0; n < bfconf->n_iomods; n++) {
                 if (!bfconf->iomods[n].iscallback && bfconf->iomods[n].stop != NULL) {
                     bfconf->iomods[n].stop(IO);
                 }
-	    }
-	}
+            }
+        }
     }
 }
 
@@ -1107,31 +1107,31 @@ dai_input(volatile struct debug_input dbg[],
     if ((ca->frames_left != -1 && st.buf_index == ca->lastbuf_index + 1) ||
         (ca->cb_frames_left != -1 && st.buf_index == ca->cb_lastbuf_index + 1))
     {
-	for (int n = 0; n < bfconf->n_iomods; n++) {
+        for (int n = 0; n < bfconf->n_iomods; n++) {
             if (bfconf->iomods[n].stop != NULL) {
                 bfconf->iomods[n].stop(IN);
             }
-	}
-	/* There is no more data to read, just sleep and let the output process end all processes. */
-	while (true) pause();
+        }
+        /* There is no more data to read, just sleep and let the output process end all processes. */
+        while (true) pause();
     }
 
     if (st.isfirst) {
-	ca->pid[IN] = bf_getpid();
+        ca->pid[IN] = bf_getpid();
 
         timestamp(&dbg[0].init.ts_start_call);
         dai_trigger_callback_io();
-	for (int n = 0; n < bfconf->n_iomods; n++) {
+        for (int n = 0; n < bfconf->n_iomods; n++) {
             if (bfconf->iomods[n].iscallback) {
                 continue;
             }
-	    if ((bfconf->iomods[n].start != NULL && bfconf->iomods[n].start(IN) != 0) ||
+            if ((bfconf->iomods[n].start != NULL && bfconf->iomods[n].start(IN) != 0) ||
                 (bfconf->iomods[n].synch_start != NULL && bfconf->iomods[n].synch_start() != 0))
             {
-		fprintf(stderr, "Failed to start I/O module, aborting.\n");
-		bf_exit(BF_EXIT_OTHER);
-	    }
-	}
+                fprintf(stderr, "Failed to start I/O module, aborting.\n");
+                bf_exit(BF_EXIT_OTHER);
+            }
+        }
         timestamp(&dbg[0].init.ts_start_ret);
 
     }
@@ -1145,7 +1145,7 @@ dai_input(volatile struct debug_input dbg[],
     bool firstloop = true;
     while (devsleft != 0) {
         fd_set readfds = rfds;
-	FD_SET(glob.paramspipe_s[IN][0], &readfds);
+        FD_SET(glob.paramspipe_s[IN][0], &readfds);
 
         const int fdmax = (glob.dev_fdn[IN] > glob.paramspipe_s[IN][0]) ? glob.dev_fdn[IN] : glob.paramspipe_s[IN][0];
 
@@ -1195,10 +1195,10 @@ dai_input(volatile struct debug_input dbg[],
         timestamp(&dbg[dbg_pos].select.ts_ret);
         dbg[dbg_pos].select.retval = fdn;
 
-	if (fdn == -1) {
-	    fprintf(stderr, "Select failed: %s.\n", strerror(errno));
-	    bf_exit(BF_EXIT_OTHER);
-	}
+        if (fdn == -1) {
+            fprintf(stderr, "Select failed: %s.\n", strerror(errno));
+            bf_exit(BF_EXIT_OTHER);
+        }
 
         for (int n = 0; n < glob.n_devs[IN]; n++) {
             // if poll mode or bad alignment, always poll for data
@@ -1211,14 +1211,14 @@ dai_input(volatile struct debug_input dbg[],
             }
         }
 
-	int fd = -1;
-	while (fdn--) {
+        int fd = -1;
+        while (fdn--) {
             for (fd++; !FD_ISSET(fd, &readfds) && fd <= fdmax; fd++);
-	    if (fd == glob.paramspipe_s[IN][0]) {
-		handle_params(IN);
-		continue;
-	    }
-	    struct subdev *sd = glob.fd2dev[IN][fd];
+            if (fd == glob.paramspipe_s[IN][0]) {
+                handle_params(IN);
+                continue;
+            }
+            struct subdev *sd = glob.fd2dev[IN][fd];
 
             dbg[dbg_pos].read.fd = fd;
             dbg[dbg_pos].read.buf = buf + sd->buf_offset;
@@ -1226,7 +1226,7 @@ dai_input(volatile struct debug_input dbg[],
             dbg[dbg_pos].read.count = sd->buf_left;
             timestamp(&dbg[dbg_pos].read.ts_call);
 
-	    const int byte_count = sd->module->read(fd, buf + sd->buf_offset, sd->buf_size - sd->buf_left, sd->buf_left);
+            const int byte_count = sd->module->read(fd, buf + sd->buf_offset, sd->buf_size - sd->buf_left, sd->buf_left);
 
             timestamp(&dbg[dbg_pos].read.ts_ret);
             dbg[dbg_pos].read.retval = byte_count;
@@ -1235,67 +1235,67 @@ dai_input(volatile struct debug_input dbg[],
             }
             (*dbg_loops)++;
 
-	    switch (byte_count) {
-	    case -1: {
-		switch (errno) {
-		case EINTR:
-		case EAGAIN:
-		    /* try again later */
-		    break;
-		case EIO:
-		    /* invalid input signal */
-		    fprintf(stderr, "I/O module failed to read due to invalid input signal, aborting.\n");
-		    bf_exit(BF_EXIT_INVALID_INPUT);
-		    break;
-		case EPIPE:
-		    /* buffer underflow */
+            switch (byte_count) {
+            case -1: {
+                switch (errno) {
+                case EINTR:
+                case EAGAIN:
+                    /* try again later */
+                    break;
+                case EIO:
+                    /* invalid input signal */
+                    fprintf(stderr, "I/O module failed to read due to invalid input signal, aborting.\n");
+                    bf_exit(BF_EXIT_INVALID_INPUT);
+                    break;
+                case EPIPE:
+                    /* buffer underflow */
 
                     /* Actually, this should be overflow, but since we have
                        linked the devices, broken pipe on output will be
                        noted on the input as well, and it is more likely that
                        it is an underflow on the output than an overflow on
                        the input */
-		    fprintf(stderr, "I/O module failed to read (probably) due to buffer underflow on output, aborting.\n");
-		    bf_exit(BF_EXIT_BUFFER_UNDERFLOW);
-		    break;
-		default:
-		    /* general error */
-		    fprintf(stderr, "I/O module failed to read, aborting.\n");
-		    bf_exit(BF_EXIT_OTHER);
-		    break;
-		}
-		break;
+                    fprintf(stderr, "I/O module failed to read (probably) due to buffer underflow on output, aborting.\n");
+                    bf_exit(BF_EXIT_BUFFER_UNDERFLOW);
+                    break;
+                default:
+                    /* general error */
+                    fprintf(stderr, "I/O module failed to read, aborting.\n");
+                    bf_exit(BF_EXIT_OTHER);
+                    break;
+                }
+                break;
             }
-	    case 0: {
-		if (sd->isinterleaved) {
-		    memset(buf + sd->buf_offset + sd->buf_size - sd->buf_left, 0, sd->buf_left);
-		} else {
-		    const int i = sd->buf_size / sd->channels.open_channels;
-		    const int k = sd->buf_left / sd->channels.open_channels;
-		    for (int n = 1; n <= sd->channels.open_channels; n++) {
-			memset(buf + sd->buf_offset + n * i - k, 0, k);
-		    }
-		}
-		devsleft--;
-		FD_CLR(fd, &rfds);
+            case 0: {
+                if (sd->isinterleaved) {
+                    memset(buf + sd->buf_offset + sd->buf_size - sd->buf_left, 0, sd->buf_left);
+                } else {
+                    const int i = sd->buf_size / sd->channels.open_channels;
+                    const int k = sd->buf_left / sd->channels.open_channels;
+                    for (int n = 1; n <= sd->channels.open_channels; n++) {
+                        memset(buf + sd->buf_offset + n * i - k, 0, k);
+                    }
+                }
+                devsleft--;
+                FD_CLR(fd, &rfds);
 
-		const int frames_left = (sd->buf_size - sd->buf_left) / sd->channels.sf.bytes / sd->channels.open_channels;
-		if (ca->frames_left == -1 || frames_left < ca->frames_left) {
-		    ca->frames_left = frames_left;
-		}
-		ca->lastbuf_index = st.buf_index;
-		break;
+                const int frames_left = (sd->buf_size - sd->buf_left) / sd->channels.sf.bytes / sd->channels.open_channels;
+                if (ca->frames_left == -1 || frames_left < ca->frames_left) {
+                    ca->frames_left = frames_left;
+                }
+                ca->lastbuf_index = st.buf_index;
+                break;
             }
-	    default: {
-		sd->buf_left -= byte_count;
-		if (glob.monitor_rate_fd == fd) {
-		    if (st.startmeasure) {
+            default: {
+                sd->buf_left -= byte_count;
+                if (glob.monitor_rate_fd == fd) {
+                    if (st.startmeasure) {
                         if (sd->buf_left == 0) {
                             st.startmeasure = false;
                             gettimeofday(&st.starttv, NULL);
                         }
-		    } else {
-			st.frames += byte_count / (sd->buf_size / glob.period_size);
+                    } else {
+                        st.frames += byte_count / (sd->buf_size / glob.period_size);
                         if (st.frames >= glob.sample_rate && sd->buf_left == 0) {
                             struct timeval tv;
                             gettimeofday(&tv, NULL);
@@ -1315,21 +1315,21 @@ dai_input(volatile struct debug_input dbg[],
                             st.startmeasure = true;
                             st.frames = 0;
                         }
-		    }
-		}
+                    }
+                }
                 const int frames_left = sd->buf_left / (sd->buf_size / glob.period_size);
                 if (sd->uses_clock && (frames_left < minleft || minleft == -1)) {
                     minleft = frames_left;
                 }
-		if (sd->buf_left == 0) {
-		    sd->buf_left = sd->buf_size;
-		    devsleft--;
-		    FD_CLR(fd, &rfds);
-		}
-		break;
+                if (sd->buf_left == 0) {
+                    sd->buf_left = sd->buf_size;
+                    devsleft--;
+                    FD_CLR(fd, &rfds);
+                }
+                break;
             }
-	    }
-	}
+            }
+        }
         firstloop = false;
     }
 
@@ -1372,20 +1372,20 @@ dai_output(bool iodelay_fill,
     if ((ca->frames_left != -1 && st.buf_index == ca->lastbuf_index) ||
         (ca->cb_frames_left != -1 && st.buf_index == ca->cb_lastbuf_index))
     {
-	int frames_left = ca->frames_left;
+        int frames_left = ca->frames_left;
         if (frames_left == -1 || ( ca->cb_frames_left != -1 &&  ca->cb_frames_left < frames_left)) {
             frames_left =  ca->cb_frames_left;
         }
-	for (int n = 0; n < glob.n_devs[OUT]; n++) {
+        for (int n = 0; n < glob.n_devs[OUT]; n++) {
             struct subdev *sd = glob.dev[OUT][n];
             if (!sd->uses_callback) {
                 sd->buf_left = sd->buf_size = frames_left * sd->channels.sf.bytes * sd->channels.open_channels;
             }
-	}
+        }
         st.islast = true;
     }
     if (st.isfirst) {
-	FD_ZERO(&st.readfds); // in theory FD_ZERO() can be different from just = {}
+        FD_ZERO(&st.readfds); // in theory FD_ZERO() can be different from just = {}
     }
 
     uint8_t *buf = (uint8_t *)glob.iobuffers[OUT][st.curbuf];
@@ -1411,37 +1411,37 @@ dai_output(bool iodelay_fill,
 
     while (devsleft != 0) {
         fd_set writefds = wfds;
-	FD_SET(glob.paramspipe_s[OUT][0], &st.readfds);
+        FD_SET(glob.paramspipe_s[OUT][0], &st.readfds);
         int fdn = (glob.dev_fdn[OUT] > glob.paramspipe_s[OUT][0]) ? glob.dev_fdn[OUT] : glob.paramspipe_s[OUT][0];
 
         dbg[dbg_pos].select.fdmax = fdn + 1;
         timestamp(&dbg[dbg_pos].select.ts_call);
 
-	while ((fdn = select(fdn + 1, &st.readfds, &writefds, NULL, NULL)) == -1 && errno == EINTR);
+        while ((fdn = select(fdn + 1, &st.readfds, &writefds, NULL, NULL)) == -1 && errno == EINTR);
 
         timestamp(&dbg[dbg_pos].select.ts_ret);
         dbg[dbg_pos].select.retval = fdn;
 
-	if (fdn == -1) {
-	    fprintf(stderr, "Select failed: %s.\n", strerror(errno));
-	    bf_exit(BF_EXIT_OTHER);
-	}
+        if (fdn == -1) {
+            fprintf(stderr, "Select failed: %s.\n", strerror(errno));
+            bf_exit(BF_EXIT_OTHER);
+        }
         if (FD_ISSET(glob.paramspipe_s[OUT][0], &st.readfds)) {
             handle_params(OUT);
             fdn--;
         }
 
-	int fd = -1;
-	while (fdn--) {
+        int fd = -1;
+        while (fdn--) {
             for (fd++; !FD_ISSET(fd, &writefds) && fd <= glob.dev_fdn[OUT]; fd++);
-	    struct subdev *sd = glob.fd2dev[OUT][fd];
+            struct subdev *sd = glob.fd2dev[OUT][fd];
             int write_size;
-	    if (sd->block_size > 0 && sd->buf_left > sd->block_size) {
-		write_size = sd->block_size + sd->buf_left % sd->block_size;
-	    } else {
-		write_size = sd->buf_left;
-	    }
-	    do_mute(sd, OUT, write_size, (void *)(buf + sd->buf_offset), sd->buf_size - sd->buf_left);
+            if (sd->block_size > 0 && sd->buf_left > sd->block_size) {
+                write_size = sd->block_size + sd->buf_left % sd->block_size;
+            } else {
+                write_size = sd->buf_left;
+            }
+            do_mute(sd, OUT, write_size, (void *)(buf + sd->buf_offset), sd->buf_size - sd->buf_left);
 
             dbg[dbg_pos].write.fd = fd;
             dbg[dbg_pos].write.buf = buf + sd->buf_offset;
@@ -1449,7 +1449,7 @@ dai_output(bool iodelay_fill,
             dbg[dbg_pos].write.count = write_size;
             timestamp(&dbg[dbg_pos].write.ts_call);
 
-	    int byte_count = sd->module->write(fd, buf + sd->buf_offset, sd->buf_size - sd->buf_left, write_size);
+            int byte_count = sd->module->write(fd, buf + sd->buf_offset, sd->buf_size - sd->buf_left, write_size);
 
             timestamp(&dbg[dbg_pos].write.ts_ret);
             dbg[dbg_pos].write.retval = byte_count;
@@ -1458,8 +1458,8 @@ dai_output(bool iodelay_fill,
             }
             (*dbg_loops)++;
 
-	    switch (byte_count) {
-	    case -1:
+            switch (byte_count) {
+            case -1:
                 switch (errno) {
                 case EINTR:
                 case EAGAIN:
@@ -1476,18 +1476,18 @@ dai_output(bool iodelay_fill,
                     bf_exit(BF_EXIT_OTHER);
                     break;
                 }
-		break;
+                break;
 
-	    default:
-		sd->buf_left -= byte_count;
-		break;
-	    }
-	    if (sd->buf_left == 0) {
-		sd->buf_left = sd->buf_size;
-		devsleft--;
-		FD_CLR(fd, &wfds);
-	    }
-	}
+            default:
+                sd->buf_left -= byte_count;
+                break;
+            }
+            if (sd->buf_left == 0) {
+                sd->buf_left = sd->buf_size;
+                devsleft--;
+                FD_CLR(fd, &wfds);
+            }
+        }
         if (synch_fd != NULL) {
             timestamp(&dbg[0].init.ts_synchfd_call);
             bf_sem_post(synch_fd);
@@ -1495,22 +1495,22 @@ dai_output(bool iodelay_fill,
             timestamp(&dbg[0].init.ts_synchfd_ret);
             synch_fd = NULL;
         }
-	if (!iodelay_fill && st.isfirst) {
-	    st.isfirst = false;
+        if (!iodelay_fill && st.isfirst) {
+            st.isfirst = false;
 
             timestamp(&dbg[0].init.ts_start_call);
-	    for (int n = 0; n < bfconf->n_iomods; n++) {
+            for (int n = 0; n < bfconf->n_iomods; n++) {
                 if (bfconf->iomods[n].iscallback) {
                     continue;
                 }
-		if (bfconf->iomods[n].start != NULL && bfconf->iomods[n].start(OUT) != 0) {
-		    fprintf(stderr, "I/O module failed to start, aborting.\n");
-		    bf_exit(BF_EXIT_OTHER);
-		}
-	    }
+                if (bfconf->iomods[n].start != NULL && bfconf->iomods[n].start(OUT) != 0) {
+                    fprintf(stderr, "I/O module failed to start, aborting.\n");
+                    bf_exit(BF_EXIT_OTHER);
+                }
+            }
             timestamp(&dbg[0].init.ts_start_ret);
-	    ca->pid[OUT] = bf_getpid();
-	}
+            ca->pid[OUT] = bf_getpid();
+        }
     }
 
     if (iodelay_fill) {
@@ -1518,7 +1518,7 @@ dai_output(bool iodelay_fill,
     }
 
     if (st.islast) {
-	for (int n = 0; n < bfconf->n_iomods; n++) {
+        for (int n = 0; n < bfconf->n_iomods; n++) {
             if (bfconf->iomods[n].iscallback) {
                 /* callback I/O is stopped elsewhere */
                 continue;
@@ -1529,8 +1529,8 @@ dai_output(bool iodelay_fill,
             if (bfconf->iomods[n].stop != NULL) {
                 bfconf->iomods[n].stop(OUT);
             }
-	}
-	ca->blocking_stopped = true;
+        }
+        ca->blocking_stopped = true;
         for (int n = 0; n < glob.n_devs[OUT]; n++) {
             struct subdev *sd = glob.dev[OUT][n];
             if (!sd->uses_callback) {

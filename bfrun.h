@@ -55,11 +55,11 @@ bflogic_names(int *n_names);
 
 const char **
 bfio_names(int io,
-	   int *n_names);
+           int *n_names);
 
 void
 bfio_range(int io,
-	   int modindex,
-	   int range[2]);
+           int modindex,
+           int range[2]);
 
 #endif

@@ -112,7 +112,7 @@ bfio_preinit(int *version_major,
                     return NULL;
                 }
                 GET_TOKEN(BF_LEXVAL_STRING, "expected string.\n");
-                settings->path = strdup(lexval.string);                
+                settings->path = strdup(lexval.string);
             } else if (strcmp(lexval.field, "skip") == 0) {
                 GET_TOKEN(BF_LEXVAL_REAL, "expected integer.\n");
                 settings->skipbytes = (off_t)lexval.real;
@@ -194,15 +194,15 @@ bfio_preinit(int *version_major,
 
 int
 bfio_init(void *params,
-	  int io,
-	  int sample_format,
-	  int sample_rate,
-	  int open_channels,
-	  int used_channels,
-	  const int channel_selection[],
-	  int period_size,
-	  int *device_period_size,
-	  int *isinterleaved,
+          int io,
+          int sample_format,
+          int sample_rate,
+          int open_channels,
+          int used_channels,
+          const int channel_selection[],
+          int period_size,
+          int *device_period_size,
+          int *isinterleaved,
           void *callback_state,
           int (*process_callback)(void **callback_states[2],
                                   int callback_state_count[2],
@@ -221,16 +221,16 @@ bfio_init(void *params,
     outtext_len = strlen(s_);
 
     settings = (struct settings *)params;
-    *device_period_size = 0; 
+    *device_period_size = 0;
     *isinterleaved = 1;
     if (io == BF_IN) {
-	if ((fd = open(settings->path, O_RDONLY | O_NONBLOCK |
-		       O_LARGEFILE)) == -1)
-	{
-	    fprintf(stderr, "File I/O: Could not open file \"%s\" for "
+        if ((fd = open(settings->path, O_RDONLY | O_NONBLOCK |
+                       O_LARGEFILE)) == -1)
+        {
+            fprintf(stderr, "File I/O: Could not open file \"%s\" for "
                     "reading: %s.\n", settings->path, strerror(errno));
-	    return -1;
-	}
+            return -1;
+        }
         rs = malloc(sizeof(struct readstate));
         memset(rs, 0, sizeof(struct readstate));
         rs->filesize = 0;
@@ -251,14 +251,14 @@ bfio_init(void *params,
         rs->skipbytes = settings->skipbytes;
         rs->loop = settings->loop;
         rs->use_text = settings->text;
-	if (settings->skipbytes > 0) {
-	    if (lseek(fd, settings->skipbytes, SEEK_SET) == -1) {
-		fprintf(stderr, "File seek failed.\n");
-		return -1;
-	    }
+        if (settings->skipbytes > 0) {
+            if (lseek(fd, settings->skipbytes, SEEK_SET) == -1) {
+                fprintf(stderr, "File seek failed.\n");
+                return -1;
+            }
             rs->curpos = settings->skipbytes;
-	}
-        if (settings->text) {            
+        }
+        if (settings->text) {
             rs->text.filefd = fd;
             rs->text.buffer = malloc(TEXT_BUFFER_SIZE + 1);
             rs->text.buffer[0] = '\0';
@@ -272,19 +272,19 @@ bfio_init(void *params,
         }
         readstate[fd] = rs;
     } else {
-	if (settings->append) {
-	    mode = O_APPEND;
-	} else {
-	    mode = O_TRUNC;
-	}
-	if ((fd = open(settings->path, O_WRONLY | O_CREAT | mode |
-		       O_NONBLOCK | O_LARGEFILE, S_IRUSR | S_IWUSR |
-		       S_IRGRP | S_IROTH)) == -1)
-	{
-	    fprintf(stderr, "File I/O: Could not create file \"%s\" for "
+        if (settings->append) {
+            mode = O_APPEND;
+        } else {
+            mode = O_TRUNC;
+        }
+        if ((fd = open(settings->path, O_WRONLY | O_CREAT | mode |
+                       O_NONBLOCK | O_LARGEFILE, S_IRUSR | S_IWUSR |
+                       S_IRGRP | S_IROTH)) == -1)
+        {
+            fprintf(stderr, "File I/O: Could not create file \"%s\" for "
                     "writing: %s.\n", settings->path, strerror(errno));
-	    return -1;
-	}
+            return -1;
+        }
         ws = malloc(sizeof(struct writestate));
         memset(ws, 0, sizeof(struct writestate));
         ws->open_channels = open_channels;
@@ -384,7 +384,7 @@ text_read(int fd,
                 rs->curpos = rs->skipbytes;
             }
             if (retval == 0 && !rs->loop) {
-                break;                    
+                break;
             }
             rs->text.offset += retval;
             rs->text.buffer[rs->text.offset] = '\0';
@@ -420,9 +420,9 @@ text_read(int fd,
 
 int
 bfio_read(int fd,
-	  void *buf,
-	  int offset,
-	  int count)
+          void *buf,
+          int offset,
+          int count)
 {
     int retval;
 
@@ -512,8 +512,8 @@ text_write_helper(int fd,
 
 static int
 text_write(int fd,
-	   const void *buf,
-	   int count)
+           const void *buf,
+           int count)
 {
     int retval, i, j, k, linelen;
     struct writestate *ws;
@@ -571,9 +571,9 @@ text_write(int fd,
 
 int
 bfio_write(int fd,
-	   const void *buf,
-	   int offset,
-	   int count)
+           const void *buf,
+           int offset,
+           int count)
 {
     int retval;
 
@@ -599,7 +599,7 @@ void
 bfio_stop(int io)
 {
     int fd;
-    
+
     for (fd = 0; fd <= fdmax[io]; fd++) {
         if (FD_ISSET(fd, &fds[io])) {
             close(fd);

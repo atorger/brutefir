@@ -62,11 +62,11 @@ lfsr113_init(uint32_t state[4])
 
 bool
 dither_init(const int n_channels,
-	    const int sample_rate,
+            const int sample_rate,
             const int realsize_,
-	    const int max_size,
-	    const int max_samples_per_loop,
-	    struct dither_state *dither_states[])
+            const int max_size,
+            const int max_samples_per_loop,
+            struct dither_state *dither_states[])
 {
     realsize = realsize_;
 
@@ -121,9 +121,9 @@ dither_init(const int n_channels,
     }
 
     for (int n = 0; n < n_channels; n++) {
-	dither_states[n] = emalloc(sizeof(struct dither_state));
-	memset(dither_states[n], 0, sizeof(struct dither_state));
-	dither_states[n]->randtab_ptr = n * spacing + 1;
+        dither_states[n] = emalloc(sizeof(struct dither_state));
+        memset(dither_states[n], 0, sizeof(struct dither_state));
+        dither_states[n]->randtab_ptr = n * spacing + 1;
     }
     return true;
 }
