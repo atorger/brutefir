@@ -18,7 +18,7 @@
 #include "inout.h"
 
 #define DEFAULT_CLIENTNAME "brutefir"
-#define DEFAULT_PIPEWIRE_CB_THREAD_PRIORITY 84
+#define DEFAULT_PIPEWIRE_CB_THREAD_PRIORITY 83
 #define DEFAULT_AUDIO_FORMAT "32 bit float mono audio"
 
 struct pipewire_state {
@@ -102,11 +102,34 @@ static struct {
 };
 
 static void
+test_callback_priority(void)
+{
+    struct sched_param schp;
+    int policy;
+
+    pthread_getschedparam(pthread_self(), &policy, &schp);
+    policy &= 0xFF; // policy contains Linux-specific SCHED_RESET_ON_FORK flag, so we mask it
+    if (policy != SCHED_FIFO && policy != SCHED_RR) {
+        fprintf(stderr, "PipeWire I/O: Warning: PipeWire callback thread is not running with "
+                "SCHED_FIFO or SCHED_RR (realtime).\n");
+    } else if (schp.sched_priority != glob.expected_priority) {
+        fprintf(stderr, "\
+PipeWire I/O: Warning: PipeWire callback thread has priority %d, but BruteFIR expected %d.\n\
+  On a computer with high load this may lead to less reliable operation.\n\
+  In order to make correct realtime scheduling BruteFIR must in advance know\n\
+  the priority PipeWire uses. BruteFIR must be manually configured with that.\n\
+  Use the \"priority\" setting in the first \"pipewire\" device clause in your\n\
+  BruteFIR configuration file.\n",
+                (int)schp.sched_priority, (int)glob.expected_priority);
+    }
+}
+
+static void
 pipewire_filter_process_callback(void *arg,
                                  struct spa_io_position *position)
 {
-
     static bool finished = false;
+    static bool run_once = true;
 
     const uint32_t n_samples = position->clock.duration;
 
@@ -142,6 +165,12 @@ pipewire_filter_process_callback(void *arg,
     } else {
         int frames_left = glob.process_cb(glob.states, glob.n_handles, iobufs, n_samples, BF_CALLBACK_EVENT_NORMAL);
         finished = frames_left != 0;
+    }
+
+    // for latency reasons we do this run once test after we've handled the callback data
+    if (run_once) {
+        run_once = false;
+        test_callback_priority();
     }
 }
 
@@ -226,7 +255,7 @@ populate_own_port_ids_from_registry(bool silent)
     uint32_t filter_node_id = find_own_filter_node_id();
     if (filter_node_id == UINT32_MAX) {
         if (!silent) {
-            fprintf(stderr, "Pipewire I/O: could not find own filter node in registry\n");
+            fprintf(stderr, "PipeWire I/O: could not find own filter node in registry\n");
         }
         return false;
     }
@@ -245,7 +274,7 @@ populate_own_port_ids_from_registry(bool silent)
                 }
                 if (pws->port[i].id == UINT32_MAX) {
                     if (!silent) {
-                        fprintf(stderr, "Pipewire I/O: could not find own port \"%s\" in registry\n", pws->port[i].name);
+                        fprintf(stderr, "PipeWire I/O: could not find own port \"%s\" in registry\n", pws->port[i].name);
                     }
                     return false;
                 }
@@ -284,7 +313,7 @@ pipewire_registry_event_callback(void *data,
         const char *pid = spa_dict_lookup(props, PW_KEY_SEC_PID);
         if (pid == NULL) {
             // I don't think this could/should happen
-            fprintf(stderr, "Pipewire I/O: missing pid in client registry callback\n");
+            fprintf(stderr, "PipeWire I/O: missing pid in client registry callback\n");
             return;
         }
         if (atoll(pid) == (long long)getpid()) {
@@ -299,7 +328,7 @@ pipewire_registry_event_callback(void *data,
         const char *client_id = spa_dict_lookup(props, PW_KEY_CLIENT_ID);
         if (node_name == NULL || client_id == NULL) {
             // I don't think this could/should happen
-            fprintf(stderr, "Pipewire I/O: missing node information in registry callback\n");
+            fprintf(stderr, "PipeWire I/O: missing node information in registry callback\n");
             return;
         }
         struct registry_item *item = malloc(sizeof(*item));
@@ -317,7 +346,7 @@ pipewire_registry_event_callback(void *data,
             const char *name = spa_dict_lookup(props, PW_KEY_PORT_NAME);
             if (node_id == NULL || name == NULL || alias == NULL) {
                 // I don't think this could/should happen
-                fprintf(stderr, "Pipewire I/O: missing port information in registry callback\n");
+                fprintf(stderr, "PipeWire I/O: missing port information in registry callback\n");
                 return;
             }
 
@@ -404,7 +433,7 @@ create_and_connect_pipewire_filter(int period_size,
         NULL);
 
     if (filter == NULL) {
-        fprintf(stderr, "Pipewire I/O: Failed to create pipewire filter.\n");
+        fprintf(stderr, "PipeWire I/O: Failed to create pipewire filter.\n");
         return NULL;
     }
 
@@ -416,7 +445,7 @@ create_and_connect_pipewire_filter(int period_size,
                                               &SPA_PROCESS_LATENCY_INFO_INIT(.ns = io_delay_ns));
 
     if (pw_filter_connect(filter, PW_FILTER_FLAG_RT_PROCESS, spa_params, 1) < 0) {
-        fprintf(stderr, "Pipewire I/O: Failed to connect pipewire filter.\n");
+        fprintf(stderr, "PipeWire I/O: Failed to connect pipewire filter.\n");
         return NULL;
     }
 
@@ -432,25 +461,45 @@ pipewire_init(void)
     };
     static struct spa_hook registry_listener;
 
+
+    {
+        struct sched_param schp;
+        int policy;
+
+        pthread_getschedparam(pthread_self(), &policy, &schp);
+        if (policy != SCHED_FIFO && policy != SCHED_RR) {
+            fprintf(stderr, "JACK I/O: Warning: JACK is not running with "
+                    "SCHED_FIFO or SCHED_RR (realtime).\n");
+        } else if (schp.sched_priority != glob.expected_priority) {
+            fprintf(stderr, "\
+JACK I/O: Warning: JACK thread has priority %d, but BruteFIR expected %d.\n \
+  In order to make correct realtime scheduling BruteFIR must know what\n \
+  priority JACK uses. At the time of writing the JACK API does not support\n \
+  getting that information so BruteFIR must be manually configured with that.\n \
+  Use the \"priority\" setting in the first \"jack\" device clause in your\n \
+  BruteFIR configuration file.\n",
+                (int)schp.sched_priority, (int)glob.expected_priority);
+        }
+    }
     pw_init(NULL, NULL);
     glob.pw_loop = pw_main_loop_new(NULL);
     if (glob.pw_loop == NULL) {
-        fprintf(stderr, "Pipewire I/O: Could not create pipewire main loop.\n");
+        fprintf(stderr, "PipeWire I/O: Could not create pipewire main loop.\n");
         return false;
     }
     struct pw_context *context =  pw_context_new(pw_main_loop_get_loop(glob.pw_loop), NULL, 0);
     if (context == NULL) {
-        fprintf(stderr, "Pipewire I/O: Could not create pipewire context.\n");
+        fprintf(stderr, "PipeWire I/O: Could not create pipewire context.\n");
         return false;
     }
     glob.pw_core = pw_context_connect(context, NULL, 0);
     if (glob.pw_core == NULL) {
-        fprintf(stderr, "Pipewire I/O: Could not connect context.\n");
+        fprintf(stderr, "PipeWire I/O: Could not connect context.\n");
         return false;
     }
     glob.pw_registry = pw_core_get_registry(glob.pw_core, PW_VERSION_REGISTRY, 0);
     if (glob.pw_registry == NULL) {
-        fprintf(stderr, "Pipewire I/O: Could not get registry.\n");
+        fprintf(stderr, "PipeWire I/O: Could not get registry.\n");
         return false;
     }
     spa_zero(registry_listener);
@@ -470,7 +519,7 @@ bfio_iscallback(void)
 
 #define GET_TOKEN(token, errstr)                                        \
     if (get_config_token(&lexval) != token) {                           \
-        fprintf(stderr, "Pipewire I/O: Parse error: " errstr);          \
+        fprintf(stderr, "PipeWire I/O: Parse error: " errstr);          \
         return NULL;                                                    \
     }
 
@@ -501,7 +550,7 @@ bfio_preinit(int *version_major,
     if (*sample_format == BF_SAMPLE_FORMAT_AUTO) {
         *sample_format = BF_SAMPLE_FORMAT_FLOAT_LE;
     } else if (*sample_format != BF_SAMPLE_FORMAT_FLOAT_LE) {
-        fprintf(stderr, "Pipewire I/O: Sample format must be %s or %s.\n",
+        fprintf(stderr, "PipeWire I/O: Sample format must be %s or %s.\n",
                 bf_strsampleformat(BF_SAMPLE_FORMAT_FLOAT_LE),
                 bf_strsampleformat(BF_SAMPLE_FORMAT_AUTO));
         return NULL;
@@ -511,7 +560,7 @@ bfio_preinit(int *version_major,
     if (*sample_format == BF_SAMPLE_FORMAT_AUTO) {
         *sample_format = BF_SAMPLE_FORMAT_FLOAT_BE;
     } else if (*sample_format != BF_SAMPLE_FORMAT_FLOAT_BE) {
-        fprintf(stderr, "Pipewire I/O: Sample format must be %s or %s.\n",
+        fprintf(stderr, "PipeWire I/O: Sample format must be %s or %s.\n",
                 bf_strsampleformat(BF_SAMPLE_FORMAT_FLOAT_BE),
                 bf_strsampleformat(BF_SAMPLE_FORMAT_AUTO));
         return NULL;
@@ -526,7 +575,7 @@ bfio_preinit(int *version_major,
     union bflexval lexval;
     while ((token = get_config_token(&lexval)) > 0) {
         if (token != BF_LEXVAL_FIELD) {
-            fprintf(stderr, "Pipewire I/O: Parse error: expected field.\n");
+            fprintf(stderr, "PipeWire I/O: Parse error: expected field.\n");
             return NULL;
         }
         if (strcmp(lexval.field, "ports") == 0) {
@@ -544,12 +593,12 @@ bfio_preinit(int *version_major,
                 }
                 if (n < open_channels - 1) {
                     if (token != BF_LEX_COMMA) {
-                        fprintf(stderr, "Pipewire I/O: Parse error: expected comma (,).\n");
+                        fprintf(stderr, "PipeWire I/O: Parse error: expected comma (,).\n");
                         return NULL;
                     }
                 } else {
                     if (token != BF_LEX_EOS) {
-                        fprintf(stderr, "Pipewire I/O: Parse error: expected end of statement (;).\n");
+                        fprintf(stderr, "PipeWire I/O: Parse error: expected end of statement (;).\n");
                         return NULL;
                     }
                 }
@@ -557,7 +606,7 @@ bfio_preinit(int *version_major,
         } else if (strcmp(lexval.field, "clientname") == 0) {
             GET_TOKEN(BF_LEXVAL_STRING, "expected string.\n");
             if (glob.pw_loop != NULL && strcmp(lexval.string, glob.client_name) != 0) {
-                fprintf(stderr, "Pipewire I/O: clientname setting is global and must be set in the first pipewire device.\n");
+                fprintf(stderr, "PipeWire I/O: clientname setting is global and must be set in the first pipewire device.\n");
                 return NULL;
             }
             if (glob.client_name == NULL) {
@@ -567,7 +616,7 @@ bfio_preinit(int *version_major,
         } else if (strcmp(lexval.field, "priority") == 0) {
             GET_TOKEN(BF_LEXVAL_REAL, "expected integer.\n");
             if (glob.pw_loop != NULL && glob.expected_priority != (int)lexval.real) {
-                fprintf(stderr, "Pipewire I/O: priority setting is global and must be set in the first pipewire device.\n");
+                fprintf(stderr, "PipeWire I/O: priority setting is global and must be set in the first pipewire device.\n");
                 return NULL;
             }
             glob.expected_priority = (int)lexval.real;
@@ -625,7 +674,7 @@ bfio_init(void *params,
 
     if (used_channels != open_channels) {
         // It does not make sense to have unused channels (ie ports) for a callback I/O module
-        fprintf(stderr, "Pipewire I/O: Open channels must be equal to used channels for this I/O module.\n");
+        fprintf(stderr, "PipeWire I/O: Open channels must be equal to used channels for this I/O module.\n");
         return -1;
     }
 
@@ -633,7 +682,7 @@ bfio_init(void *params,
         // create and connect filter object at first bf_init() call
         glob.pw_filter = create_and_connect_pipewire_filter(period_size, sample_rate);
         if (glob.pw_filter == NULL) {
-            fprintf(stderr, "Pipewire I/O: Failed to init pipewire filter object.\n");
+            fprintf(stderr, "PipeWire I/O: Failed to init pipewire filter object.\n");
             return -1;
         }
         int bufsize = period_size * bf_sampleformat_size(sample_format);
@@ -645,11 +694,11 @@ bfio_init(void *params,
         if (pws->conf[n].dest_name != NULL) {
             int port_io;
             if (!find_port_by_name(pws->conf[n].dest_name, &port_io, &dest_port_id)) {
-                fprintf(stderr, "Pipewire I/O: Failed to find port \"%s\".\n", pws->conf[n].dest_name);
+                fprintf(stderr, "PipeWire I/O: Failed to find port \"%s\".\n", pws->conf[n].dest_name);
                 return -1;
             }
             if ((io == IN && port_io != OUT) || (io == OUT && port_io != IN)) {
-                fprintf(stderr, "Pipewire I/O: port \"%s\" is not an %s.\n",
+                fprintf(stderr, "PipeWire I/O: port \"%s\" is not an %s.\n",
                         pws->conf[n].dest_name, io == IN ? "output" : "input");
                 return -1;
             }
@@ -673,7 +722,7 @@ bfio_init(void *params,
                                             NULL),
                                         NULL, 0);
         if (port == NULL) {
-            fprintf(stderr, "Pipewire I/O: Failed to add port \"%s\".\n", name);
+            fprintf(stderr, "PipeWire I/O: Failed to add port \"%s\".\n", name);
             return -1;
         }
         pws->port[n].handle = port;
@@ -712,6 +761,7 @@ bfio_synch_start(void)
     // Async API: we need to wait until our own filter and ports turn up in the registry to be able
     // to link them to other ports (pw_sync_core() doesn't work for this since the objects did not
     // already exist).
+
     glob.waiting_for_own_objects_being_registered = true;
     pw_main_loop_run(glob.pw_loop);
     pw_proxy_destroy((struct pw_proxy *)glob.pw_registry); // will remove registry listener
@@ -754,7 +804,7 @@ bfio_synch_start(void)
     pthread_t pthread;
     int error;
     if ((error = pthread_create(&pthread, NULL, run_pw_loop, NULL)) != 0) {
-        fprintf(stderr, "Pipewire I/O: pthread_create() failed: %s.\n", strerror(error));
+        fprintf(stderr, "PipeWire I/O: pthread_create() failed: %s.\n", strerror(error));
         return -1;
     }
     return 0;
