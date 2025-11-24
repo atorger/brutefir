@@ -1,4 +1,4 @@
-BruteFIR v1.1.0                                                2025
+BruteFIR v1.1.0                                                November 23, 2025
 	* The original fork()-based multi-process architecture has been
 	  minimally updated to use pthreads instead, which makes it more
 	  compatible with modern sound servers.
