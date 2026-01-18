@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2002, 2004, 2006 -- Anders Torger
+ * (c) Copyright 2002, 2004, 2006, 2026 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -198,13 +198,10 @@ shift_samples(void *buf,
         }
         break;
     case 3:
-        n *= 3;
-        i *= 3;
-        sample_spacing *= 3;
         for (; n >= 0; n -= sample_spacing, i -= sample_spacing) {
-            ((uint8_t *)buf)[i++] = ((uint8_t *)buf)[n++];
-            ((uint8_t *)buf)[i++] = ((uint8_t *)buf)[n++];
-            ((uint8_t *)buf)[i++] = ((uint8_t *)buf)[n++];
+            ((uint8_t *)buf)[i * 3 + 0] = ((uint8_t *)buf)[n * 3 + 0];
+            ((uint8_t *)buf)[i * 3 + 1] = ((uint8_t *)buf)[n * 3 + 1];
+            ((uint8_t *)buf)[i * 3 + 2] = ((uint8_t *)buf)[n * 3 + 2];
         }
         break;
     case 4:

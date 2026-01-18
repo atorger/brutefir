@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006, 2013, 2016, 2025 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2013, 2016, 2025 - 2026 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -332,7 +332,7 @@ do_mute(struct subdev *sd,
         }
         break;
     case 3:
-        for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += sd->channels.open_channels) {
+        for (uint8_t *p = &buf->u8[mid_offset]; p < endp; p += 3 * sd->channels.open_channels) {
             for (int n = 0; n < n_mute; n++) {
                 p[bsch[n]+0] = 0;
                 p[bsch[n]+1] = 0;
