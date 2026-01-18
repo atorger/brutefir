@@ -1,3 +1,10 @@
+BruteFIR v1.1.1                                                 January 19, 2026
+        * Fix (old) bug that muting with interleaved buffers and 24 bit sample
+          formats did not work correctly due to stepping only one byte instead
+          of three between channels.
+        * Fix for a similar problem as above for delay buffers with 24 bit
+          sample size.
+
 BruteFIR v1.1.0                                                November 23, 2025
         * The original fork()-based multi-process architecture has been
           minimally updated to use pthreads instead, which makes it more

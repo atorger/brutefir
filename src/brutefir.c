@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2001 - 2006, 2009, 2013, 2016, 2025 -- Anders Torger
+ * (c) Copyright 2001 - 2006, 2009, 2013, 2016, 2025 - 2026 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -19,7 +19,7 @@
 #include "bfmod.h"
 
 #define PRESENTATION_STRING \
-"BruteFIR v1.1.0\n"
+"BruteFIR v1.1.1\n"
 
 #define USAGE_STRING \
 "Usage: %s [-quiet] [-nodefault] [-daemon] [configuration file]\n"

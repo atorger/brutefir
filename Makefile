@@ -13,7 +13,7 @@ DEFINE		= #-DSINGLE_MOD_PATH=/usr/lib/brutefir
 
 FFTW_LIB	= -lfftw3 -lfftw3f
 
-BRUTEFIR_VERSION = 1.1.0
+BRUTEFIR_VERSION = 1.1.1
 UNAME	= $(shell uname)
 UNAME_M = $(shell uname -m)
 FLEX	= flex
