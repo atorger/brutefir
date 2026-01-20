@@ -339,6 +339,7 @@ do_mute(struct subdev *sd,
                 p[bsch[n]+2] = 0;
             }
         }
+        break;
     case 4: {
         for (uint32_t *p32 = &buf->u32[mid_offset>>2]; (uint8_t *)p32 < endp; p32 += sd->channels.open_channels) {
             for (int n = 0; n < n_mute; n++) {
