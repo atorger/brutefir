@@ -8,7 +8,9 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <time.h>
+#if defined(__linux__)
 #include <sys/prctl.h>
+#endif
 
 #include "compat.h"
 
@@ -63,5 +65,9 @@ allocate_aligned_memory(size_t size, size_t alignment)
 void
 set_thread_name(const char name[])
 {
+#if defined(__linux__)
     prctl(PR_SET_NAME, (unsigned long)name, 0, 0, 0);
+#else
+    (void)name;
+#endif
 }

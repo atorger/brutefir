@@ -8,7 +8,12 @@
 #define COMPAT_H_
 
 #include <math.h>
-#include <alloca.h> // for alloca(), may need some other header/macro if not on GNU/Clang
+#include <unistd.h>
+#if defined(__linux__)
+#include <alloca.h>
+#else
+#include <stdlib.h>
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

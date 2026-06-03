@@ -453,7 +453,7 @@ create_and_connect_pipewire_filter(int period_size,
 }
 
 static bool
-pipewire_init(void)
+bfio_pipewire_init(void)
 {
     static const struct pw_registry_events registry_events = {
         PW_VERSION_REGISTRY_EVENTS,
@@ -631,7 +631,7 @@ bfio_preinit(int *version_major,
         if (glob.client_name == NULL) {
             glob.client_name = strdup(DEFAULT_CLIENTNAME);
         }
-        if (!pipewire_init()) {
+        if (!bfio_pipewire_init()) {
             return NULL;
         }
     }

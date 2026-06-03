@@ -1,0 +1,77 @@
+## BruteFIR default settings — FreeBSD / OSS
+## Copy to ~/.brutefir_defaults
+
+float_bits: 64;             # internal floating-point precision (32 or 64)
+sampling_rate: 192000;      # Hz — must match the OSS loopback device rate and
+                            # the sample rate the FIR filter files were designed at
+filter_length: 32768,16;    # partition_size, num_partitions
+                            # total filter = 32768 * 16 = 524288 samples ≈ 2.7 s
+                            # reduce to e.g. 4096,4 for low-latency testing
+overflow_warnings: true;    # print to stderr when clipping occurs
+show_progress: true;        # print block counter to stderr
+max_dither_table_size: 0;   # 0 = compute dither on-the-fly (saves RAM)
+allow_poll_mode: true;      # required for OSS input devices
+monitor_rate: false;        # do not print sample-rate drift
+powersave: false;           # never pause (OSS has no silence detection)
+lock_memory: true;          # lock memory when real-time priority is set
+sdf_length: -1;             # subsample filter half-length in samples (-1 = off)
+safety_limit: 6;            # abort if output exceeds this many dB (0 = off)
+
+# Path where brutefir looks for .bfio and .bflogic plugin files.
+# Use an absolute path for daemon / rc.d use.
+modules_path: "@BRUTEFIR_MODULES_DIR@";
+
+# Location of the main configuration file.  MANDATORY — only settable here,
+# not in brutefir.conf.  Adjust the path to match your setup.
+config_file: "$XDG_CONFIG_HOME/BruteFIR/brutefir_passthrough.conf";
+convolver_config: "$XDG_CONFIG_HOME/BruteFIR/brutefir_convolver";
+
+## COEFF DEFAULTS ##
+
+coeff {
+	format: "TEXT";     # file format
+	attenuation: 0.0;   # attenuation in dB
+	blocks: -1;         # how long in blocks (-1 = full filter length)
+	skip: 0;            # how many bytes to skip at start of file
+	shared_mem: false;  # allocate in shared memory
+};
+
+## INPUT DEFAULTS ##
+
+input {
+	device: "oss" {
+		device: "/dev/dsp.loop";   # loopback capture side (see brutefir_loopback rc.d)
+	};
+	sample: "S32_LE";   # sample format — must match brutefir_loopback_bits
+	channels: 2/0,1;    # number of open channels / which to use
+	delay: 0,0;         # delay in samples for each channel
+	maxdelay: -1;       # max delay for variable delays
+	subdelay: 0,0;      # subsample delay in 1/100th sample for each channel
+	mute: false,false;  # mute active on startup for each channel
+};
+
+## OUTPUT DEFAULTS ##
+
+output {
+	device: "oss" {
+		device: "/dev/dsp0";   # first OSS device — adjust to match your DAC
+	};
+#	device: "alsa" { device: "hw:0"; ignore_xrun: true; };
+	sample: "S32_LE";
+	channels: 2/0,1;    # number of open channels / which to use
+	delay: 0,0;         # delay in samples for each channel
+	maxdelay: -1;       # max delay for variable delays
+	subdelay: 0,0;      # subsample delay in 1/100th sample for each channel
+	mute: false,false;  # mute active on startup for each channel
+	# Dither: HP TPDF noise improves effective resolution when reducing bit
+	# depth (e.g. 64-bit internal → 32-bit output).  Off by default.
+	dither: false;
+};
+
+## FILTER DEFAULTS ##
+
+filter {
+	process: -1;        # process index to run in (-1 = auto)
+	delay: 0;           # predelay in blocks
+	crossfade: false;   # crossfade when coefficient is changed
+};

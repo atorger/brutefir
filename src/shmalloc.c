@@ -8,7 +8,12 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/ipc.h>
 #include <sys/shm.h>
+
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
 
 #include "sysarch.h"
 #include "shmalloc.h"
@@ -69,7 +74,7 @@ shmalloc_id(int *shmid,
         *shmid = -1;
     }
 
-    while ((n = shmget(key, size, IPC_CREAT | IPC_EXCL | SHM_R | SHM_W)) == -1 && errno == EEXIST) {
+    while ((n = shmget(key, size, IPC_CREAT | IPC_EXCL | 0600)) == -1 && errno == EEXIST) {
         key++;
     }
     if (n == -1) {

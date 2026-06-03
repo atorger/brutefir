@@ -1,0 +1,151 @@
+#!/bin/sh
+
+# PROVIDE: brutefir_loopback
+# REQUIRE: DAEMON oss
+# KEYWORD: shutdown
+
+# System-wide use (root, via /etc/rc.conf):
+#   brutefir_loopback_enable="YES"
+#
+# Per-user use — run this script directly (not through rc.d(8)):
+#   sh /path/to/brutefir_loopback onestart   # start (ignores _enable check)
+#   sh /path/to/brutefir_loopback onestop    # stop
+#   sh /path/to/brutefir_loopback onestatus  # status
+#
+# When run as root the PID file is written to /var/run/<name>.pid.
+# When run as a regular user it is written to ~/.run/<name>.pid
+# (the directory is created automatically).
+#
+# Optional overrides (shown with defaults):
+#
+#   brutefir_loopback_channels="2"         # channels (applies to both devices)
+#   brutefir_loopback_rate="192000"        # sample rate in Hz
+#   brutefir_loopback_bits="32"            # PCM bit depth (8/16/24/32)
+#   brutefir_loopback_buf="4ms"            # buffer size per channel: samples or Nms
+#   brutefir_loopback_play="dsp.play"      # playback device name -> /dev/dsp.play
+#   brutefir_loopback_loop="dsp.loop"      # loopback device name -> /dev/dsp.loop
+#   brutefir_loopback_priority="8"         # real-time priority (rtprio(1)); 0 = disabled
+#   brutefir_loopback_ctl=""               # control device name, e.g. vdsp.ctl -> /dev/vdsp.ctl
+#   brutefir_loopback_extra_args=""        # appended verbatim to the virtual_oss command line
+#
+# The rate and bits must match sampling_rate and the sample: format in
+# brutefir.conf respectively.  Resampling (-S) is intentionally not enabled:
+# a client opening the device at the wrong rate should fail loudly, not be
+# silently resampled into mismatched audio — the same behaviour as snd_aloop.
+#
+# ── virtual_oss(8) option reference ──────────────────────────────────────────
+#
+# Global / ordering flags (each applies to commands that follow it on the
+# command line, so order matters):
+#
+#   -B                       Run in background — always set by this script.
+#   -S                       Enable automatic DSP rate resampling.
+#   -Q quality               Resampling quality: 0=best  1=medium  2=fastest (default).
+#   -b bits                  Sample depth for subsequent commands: 8 | 16 | 24 | 32.
+#   -r rate                  Sample rate in Hz for subsequent commands.
+#   -s value                 Buffer size per channel.  Integer = samples; Nms = milliseconds.
+#                            If multiple channels are used the total buffer is larger.
+#   -i priority              Real-time priority via rtprio(1).
+#   -a log2_amp              Set BOTH output and input amplification (log2 scale, -63 … 63).
+#                            Input is set to -log2_amp, output to +log2_amp.
+#   -a i,log2_amp            Set input amplification only (log2 scale, -63 … 63).
+#   -a o,log2_amp            Set output amplification only (log2 scale, -63 … 63).
+#   -p polarity              Default polarity: 0=normal  1=inverted.
+#   -e rx_mute,tx_mute       Default mute state: 0=unmuted  1=muted  (e.g. -e 0,1).
+#   -m rx,tx,…               Channel mapping: comma-separated pairs of (receive, transmit)
+#                            channel indices, repeated for each virtual channel.
+#                            Channel numbering starts at 0 (0=left, 1=right).
+#   -C num                   Maximum number of mix channels.
+#   -c num                   Mix channel count applied to subsequent device commands.
+#
+# Monitoring filters (may be repeated any number of times):
+#
+#   -M type,src,dst,pol,mute,log2_gain
+#                            Add a monitoring filter.  type selects the signal path:
+#                              i  mix input  → mix output  (remote feedback)
+#                              o  mix output → mix output  (output mix / downmix)
+#                              x  mix output → mix input   (local loopback feedback)
+#                            src: source mix channel index.
+#                            dst: destination mix channel index.
+#                            pol: polarity, 0=normal (default).
+#                            mute: 1=muted (default), 0=active.
+#                            log2_gain: amplitude in log2 scale, 0=unity (default).
+#
+# Backend device selection (use exactly one of these groups per invocation):
+#
+#   -f devname               Full-duplex: both playback AND recording on devname.
+#   -P devname               Playback-only.  /dev/null = no playback output.
+#                            /dev/sndio/… prefix selects the sndio(7) backend.
+#   -O devname               Playback-only, acts as master device.
+#                            Use together with -R /dev/null.
+#   -R devname               Recording-only.  /dev/null = no recording input.
+#   -L name                  Create a loopback device that acts as master.
+#                            Use together with -f /dev/null.
+#
+# Per-device flags (set immediately before each -d / -l / -w):
+#
+#   -F size                  Receive filter size for the next device: samples or Nms.
+#   -G size                  Transmit filter size for the next device: samples or Nms.
+#   -w name                  Create a WAV-format companion device at /dev/<name>.
+#                            Must appear before the matching -d or -l.
+#   -d name                  Create a virtual OSS playback/capture device at /dev/<name>.
+#   -l name                  Create a loopback OSS device at /dev/<name>.
+#
+# Miscellaneous:
+#
+#   -t devname               Control device name (e.g. vdsp.ctl -> /dev/vdsp.ctl).
+#   -D file                  Write the PID of virtual_oss to file — used by this script.
+#   -E enable_recording      Non-zero = enable recording; 0 = disable.
+#                            Useful to synchronise multiple recording streams.
+#   -g knee,attack,decay     Enable compressor on the receive (input) path.
+#                            Same parameter semantics as -x.
+#   -x knee,attack,decay     Enable output compressor.
+#                            knee: 0-255 — samples below this pass unchanged.
+#                            attack: 0-62 — how fast gain reduction kicks in (keep low).
+#                            decay:  0-62 — how fast gain recovers (keep > attack).
+#                            Default: 85,3,20.
+#   -h                       Show built-in help and all available options.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+. /etc/rc.subr
+
+name="brutefir_loopback"
+rcvar="brutefir_loopback_enable"
+desc="BruteFIR virtual OSS loopback (virtual_oss -f /dev/null)"
+
+load_rc_config "${name}"
+
+: ${brutefir_loopback_enable:=NO}
+: ${brutefir_loopback_channels:=2}
+: ${brutefir_loopback_rate:=192000}
+: ${brutefir_loopback_bits:=32}
+: ${brutefir_loopback_buf:=4ms}
+: ${brutefir_loopback_play:=dsp.play}
+: ${brutefir_loopback_loop:=dsp.loop}
+: ${brutefir_loopback_priority:=8}
+: ${brutefir_loopback_ctl:=}
+: ${brutefir_loopback_extra_args:=}
+
+if [ "$(id -u)" -eq 0 ]; then
+	pidfile="/var/run/${name}.pid"
+else
+	pidfile="${HOME}/.run/${name}.pid"
+	mkdir -p "${HOME}/.run"
+fi
+
+command="/usr/local/bin/virtual_oss"
+
+_args="-B -D ${pidfile}"
+_args="${_args} -i ${brutefir_loopback_priority}"
+_args="${_args} -C ${brutefir_loopback_channels} -c ${brutefir_loopback_channels}"
+_args="${_args} -r ${brutefir_loopback_rate} -b ${brutefir_loopback_bits} -s ${brutefir_loopback_buf}"
+_args="${_args} -f /dev/null"
+_args="${_args} -a 0 -d ${brutefir_loopback_play}"
+_args="${_args} -a 0 -L ${brutefir_loopback_loop}"
+[ -n "${brutefir_loopback_ctl}" ] && _args="${_args} -t ${brutefir_loopback_ctl}"
+[ -n "${brutefir_loopback_extra_args}" ] && _args="${_args} ${brutefir_loopback_extra_args}"
+
+command_args="${_args}"
+
+run_rc_command "$1"
