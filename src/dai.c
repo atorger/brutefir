@@ -1182,6 +1182,21 @@ dai_input(volatile struct debug_input dbg[],
                     ts.tv_sec = 0;
                     ts.tv_nsec = (usec - 50) * 1000;
                     nanosleep(&ts, NULL);
+                } else {
+                    /*
+                     * minleft has collapsed to a sub-50us remainder.  The
+                     * original code slept 0 here and fell through to the
+                     * zero-timeout select() below, which busy-spins a whole CPU
+                     * core whenever the input is starved/dribbling (measured
+                     * ~65k poll/s, ~125% CPU on a virtual_oss cuse loopback with
+                     * an idle producer).  Polling faster than the sample clock
+                     * gains nothing, so floor the interval and never spin:
+                     * 200us (~10 frames @48kHz) is far below any practical
+                     * latency for this path and caps the poll rate near 5kHz.
+                     */
+                    ts.tv_sec = 0;
+                    ts.tv_nsec = 200000;
+                    nanosleep(&ts, NULL);
                 }
             }
             ptv = &zerotv_;
