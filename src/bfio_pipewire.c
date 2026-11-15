@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2025 -- Anders Torger
+ * (c) Copyright 2025 - 2026 -- Anders Torger
  *
  * This program is open source. For license terms, see the LICENSE file.
  *
@@ -83,6 +83,7 @@ static struct {
                       int count,
                       int event);
     void *zerobuf;
+    void *trashbuf;
 } glob = {
     .waiting_for_own_objects_being_registered = false,
     .debug = false,
@@ -98,7 +99,8 @@ static struct {
     .startup_registry = NULL,
     .client_name = NULL,
     .process_cb = NULL,
-    .zerobuf = NULL
+    .zerobuf = NULL,
+    .trashbuf = NULL
 };
 
 static void
@@ -145,8 +147,10 @@ pipewire_filter_process_callback(void *arg,
                 if (buffer != NULL) {
                     iobufs[IO][i] = buffer;
                 } else {
-                    // this happens when there's no link to the input port
-                    iobufs[IO][i] = glob.zerobuf;
+                    // This happens when there's no link to the port. If input, it should be
+                    // a silent buffer (zerobuf), if output, data will still be written to it
+                    // so it must be a discard buffer (trashbuf).
+                    iobufs[IO][i] = IO == IN ? glob.zerobuf : glob.trashbuf;
                 }
             }
         }
@@ -687,6 +691,7 @@ bfio_init(void *params,
         }
         int bufsize = period_size * bf_sampleformat_size(sample_format);
         glob.zerobuf = calloc(1, bufsize);
+        glob.trashbuf = calloc(1, bufsize);
     }
 
     for (int n = 0; n < used_channels; n++) {
