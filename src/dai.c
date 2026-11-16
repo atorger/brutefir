@@ -1163,8 +1163,22 @@ dai_input(volatile struct debug_input dbg[],
                         usec = usec2;
                     }
                 }
-                /* nanosleep sleeps precise in maximum 2 ms (Note 2025: statement applies
-                   to 2001 linux kernels, haven't checked current status) */
+                /* "nanosleep sleeps precise in maximum 2 ms"
+
+                   Note 2026: the code below dates back to 2001 and back then a realtime scheduled
+                   thread would only nanosleep precisely up to 2 ms, for longer times the latency
+                   could be quite substantial. Therefore shorter sleeps are used. These 2 ms
+                   sleeps where actually busy waits inside the kernel, and longer sleeps were tick
+                   based.
+
+                   Modern kernels have high resolution timers so we could sleep for longer, but this
+                   code has worked well over the years so we haven't touched the code.
+
+                   Below 50 us, there is sleep 0, ie busy-wait polling. This is because at this short
+                   sleep time the wakeup latency risk missing the deadline, and we rather have higher
+                   CPU load. For a modern Linux kernel this could probably be lowered to say 10 us,
+                   but we keep this conservative value as missing deadline is very bad.
+                 */
                 struct timespec ts;
                 if (usec > 40000) {
                     ts.tv_sec = 0;
